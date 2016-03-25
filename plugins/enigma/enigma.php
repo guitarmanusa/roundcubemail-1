@@ -77,7 +77,7 @@ class enigma extends rcube_plugin
 
             // register handler for keys/certs management
             $this->register_action('plugin.enigmakeys', array($this, 'preferences_ui'));
-//            $this->register_action('plugin.enigmacerts', array($this, 'preferences_ui'));
+            $this->register_action('plugin.enigmacerts', array($this, 'preferences_ui'));
 
             $this->load_ui();
 
@@ -197,7 +197,7 @@ class enigma extends rcube_plugin
             'title'  => 'enigmakeys',
             'domain' => 'enigma',
         );
-/*
+
         $args['actions'][] = array(
             'action' => 'plugin.enigmacerts',
             'class'  => 'enigma certs',
@@ -205,7 +205,7 @@ class enigma extends rcube_plugin
             'title'  => 'enigmacerts',
             'domain' => 'enigma',
         );
-*/
+
         return $args;
     }
 
