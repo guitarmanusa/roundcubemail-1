@@ -330,6 +330,9 @@ class enigma_engine
         else if ($p['mimetype'] == 'multipart/encrypted') {
             $this->parse_encrypted($p);
         }
+        //TODO: needs some more checking, application/pkcs7-mime could be encrypted,
+        //signed or certs only.  Encrypted and signed will have filename smime.p7m.
+        //Certs only will have attachment filename smime.p7c
         else if ($p['mimetype'] == 'application/pkcs7-mime') {
             $this->parse_encrypted($p);
         }
@@ -416,7 +419,8 @@ class enigma_engine
         // including a set of appropriate content headers describing the data.
         // The second body MUST contain the PGP digital signature.  It MUST be
         // labeled with a content type of "application/pgp-signature".
-        else if (count($struct->parts) == 2
+        else if ($struct->ctype_parameters['protocol'] == 'application/pgp-signature'
+            && count($struct->parts) == 2
             && $struct->parts[1] && $struct->parts[1]->mimetype == 'application/pgp-signature'
         ) {
             $this->parse_pgp_signed($p, $body);
@@ -433,7 +437,7 @@ class enigma_engine
         $struct = $p['structure'];
 
         // S/MIME
-        if ($p['mimetype'] == 'application/pkcs7-mime') {
+        if ($struct->mimetype == 'application/pkcs7-mime') {
             $this->parse_smime_encrypted($p);
         }
         // PGP/MIME: RFC3156
@@ -442,7 +446,8 @@ class enigma_engine
         // This body contains the control information.
         // The second MIME body part MUST contain the actual encrypted data.  It
         // must be labeled with a content type of "application/octet-stream".
-        else if (count($struct->parts) == 2
+        else if ($struct->ctype_parameters['protocol'] == 'application/pgp-encrypted'
+            && count($struct->parts) == 2
             && $struct->parts[0] && $struct->parts[0]->mimetype == 'application/pgp-encrypted'
             && $struct->parts[1] && $struct->parts[1]->mimetype == 'application/octet-stream'
         ) {
@@ -565,7 +570,43 @@ class enigma_engine
             return;
         }
 
-        // @TODO
+        if ($this->rc->action != 'show' && $this->rc->action != 'preview' && $this->rc->action != 'print') {
+            return;
+        }
+
+        $this->load_smime_driver();
+        $struct = $p['structure'];
+
+        $msg_part = $struct->parts[0];
+        $sig_part = $struct->parts[1];
+
+        // Get message body
+        $storage = $this->rc->get_storage();
+        if ($body === null) {
+            $body    = $storage->get_raw_headers($p['object']->uid);
+            $body   .= $storage->get_raw_body($p['object']->uid);
+        } else {   //check for headers
+            preg_match("/^From: .*<(.*\@.*)>/m", $body, $email);
+            if(empty($email)) {  //headers not present
+                $headers = $storage->get_raw_headers($p['object']->uid);
+                preg_match("/(^.*MIME-Version: 1.0)/s", $headers, $mod_headers);
+                $body = $mod_headers[0] ."\n". $body;
+            }
+        }
+
+        // openssl_pkcs7_verify must read in from a file, can't pass string
+	$body_file = tempnam($this->homedir,"body");
+        file_put_contents($body_file, print_r($body,true));
+
+        // Verify
+        $sig = $this->smime_driver->verify($body_file);
+
+        // cleanup file
+        @unlink($body_file);
+
+        // Store signature data for display
+        $this->signatures[$struct->mime_id] = $sig;
+        $this->signatures[$msg_part->mime_id] = $sig;
     }
 
     /**
@@ -674,7 +715,7 @@ class enigma_engine
             $struct = $this->parse_body($body);
 
             // Modify original message structure
-            $this->modify_structure($p, $struct, strlen($body));
+            $this->modify_structure($p, $struct);
 
             // Parse the structure (there may be encrypted/signed parts inside
             $this->part_structure(array(
@@ -713,7 +754,56 @@ class enigma_engine
             return;
         }
 
-        // @TODO
+        $this->load_smime_driver();
+
+        $struct = $p['structure'];
+        $part   = $struct->parts[1];
+
+        // Get body and headers
+        $body = $this->get_part_body($p['object'], $part, true);
+
+        $infilename  = tempnam($this->homedir,"encmsg");
+        $outfilename = tempnam($this->homedir,"decmsg"); // make sure you can write to this file
+
+        file_put_contents($infilename, $body);
+        // Decrypt
+        $result = $this->smime_driver->decrypt($infilename, null, $outfilename);
+
+        if ($result === true) {
+            // Parse decrypted message
+            $body = file_get_contents($outfilename);
+            $struct = $this->parse_body($body);
+
+            // Modify original message structure
+            $this->modify_structure($p, $struct);
+
+            // Parse the structure (there may be encrypted/signed parts inside
+            $this->part_structure(array(
+                    'object'    => $p['object'],
+                    'structure' => $struct,
+                    'mimetype'  => $struct->mimetype
+                ), $body);
+
+            // Attach the decryption message to all parts
+            $this->decryptions[$struct->mime_id] = $result;
+            foreach ((array) $struct->parts as $sp) {
+                $this->decryptions[$sp->mime_id] = $result;
+            }
+        }
+        else {
+            $this->decryptions[$part->mime_id] = $result;
+
+            // Make sure decryption status message will be displayed
+            $part->type = 'content';
+            $p['object']->parts[] = $part;
+
+            // don't show encrypted part on attachments list
+            // don't show "cannot display encrypted message" text
+            $p['abort'] = true;
+        }
+
+        @unlink($infilename);
+        @unlink($outfilename);
     }
 
     /**
@@ -982,6 +1072,31 @@ class enigma_engine
     }
 
     /**
+     * SMIME cert importing.
+     *
+     * @param mixed   Import file name or content
+     * @param boolean True if first argument is a filename
+     * @param string  Password for PEM or PKCS#12 file, optional
+     *
+     * @return mixed Import status data array or enigma_error
+     */
+    function import_cert($content, $isfile=false, $password = '')
+    {
+        $this->load_smime_driver();
+        $result = $this->smime_driver->import($content, $isfile, $password);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+        }
+
+        return $result;
+    }
+
+    /**
      * Handler for keys/certs import request action
      */
     function import_file()
@@ -1143,9 +1258,8 @@ class enigma_engine
      *
      * @param array              Hook arguments
      * @param rcube_message_part Part structure
-     * @param int                Part size
      */
-    private function modify_structure(&$p, $struct, $size = 0)
+    private function modify_structure(&$p, $struct)
     {
         // modify mime_parts property of the message object
         $old_id = $p['structure']->mime_id;
@@ -1155,11 +1269,6 @@ class enigma_engine
                 unset($p['object']->mime_parts[$idx]);
             }
         }
-
-        // set some part params used by Roundcube core
-        $struct->headers  = array_merge($p['structure']->headers, $struct->headers);
-        $struct->size     = $size;
-        $struct->filename = $p['structure']->filename;
 
         // modify the new structure to be correctly handled by Roundcube
         $this->modify_structure_part($struct, $p['object'], $old_id);
@@ -1232,10 +1341,17 @@ class enigma_engine
      */
     public function is_keys_part($part)
     {
-        // @TODO: S/MIME
-        return (
-            // Content-Type: application/pgp-keys
-            $part->mimetype == 'application/pgp-keys'
-        );
+        // S/MIME:
+        // Content-Type: application/pkcs7-mime
+        // attachment name smime.p7c
+        if ($part->mimetype == 'application/pkcs7-mime' and $part->filename == "smime.p7c") {
+            return true;
+        }
+        // PGP:
+        // Content-Type: application/pgp-keys
+        if ($part->mimetype == 'application/pgp-keys'
+        ) { 
+            return true; 
+        }
     }
 }
