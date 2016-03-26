@@ -761,6 +761,157 @@ class enigma_ui
     }
 
     /**
+     * Template object for list of certificates.
+     *
+     * @param array Object attributes
+     *
+     * @return string HTML content
+     */
+    function tpl_cert_list($attrib)
+    {
+    }
+
+    /**
+     * Cert listing (and searching) request handler
+     */
+    private function cert_list()
+    {
+    }
+
+    /**
+     * Template object for list records counter.
+     *
+     * @param array Object attributes
+     *
+     * @return string HTML output
+     */
+    function tpl_cert_rowcount($attrib)
+    {
+    }
+
+    /**
+     * Cert import (page) handler
+     */
+    private function cert_import()
+    {
+        // Import process
+        if ($data = rcube_utils::get_input_value('_keys', rcube_utils::INPUT_POST)) {
+            // Import from generation form (ajax request)
+            $this->enigma->load_engine();
+            $result = $this->enigma->engine->import_cert($data);
+
+            if (is_array($result)) {
+                $this->rc->output->command('enigma_cert_create_success');
+                $this->rc->output->show_message('enigma.certgeneratesuccess', 'confirmation');
+            }
+            else {
+                $this->rc->output->show_message('enigma.certimportfailed', 'error');
+            }
+
+            $this->rc->output->send();
+        }
+        else if ($_FILES['_file']['tmp_name'] && is_uploaded_file($_FILES['_file']['tmp_name'])) {
+
+            $this->enigma->load_engine();
+            $result = $this->enigma->engine->import_cert($_FILES['_file']['tmp_name'], true, $_POST['password']);
+
+            if (is_array($result)) {
+                // reload list if any keys has been added
+                if ($result['imported']) {
+                    $this->rc->output->command('parent.enigma_list', 1);
+                }
+                else {
+                    $this->rc->output->command('parent.enigma_loadframe');
+                }
+
+                $this->rc->output->show_message('enigma.certimportsuccess', 'confirmation',
+                    array('new' => $result['imported'], 'old' => $result['unchanged']));
+
+                $this->rc->output->send('iframe');
+            }
+            else {
+                //TODO tell the user the password was incorrect
+                $this->rc->output->show_message('enigma.certimportfailed', 'error');
+            }
+        }
+        else if ($err = $_FILES['_file']['error']) {
+            if ($err == UPLOAD_ERR_INI_SIZE || $err == UPLOAD_ERR_FORM_SIZE) {
+                $this->rc->output->show_message('filesizeerror', 'error',
+                    array('size' => $this->rc->show_bytes(parse_bytes(ini_get('upload_max_filesize')))));
+            } else {
+                $this->rc->output->show_message('fileuploaderror', 'error');
+            }
+        }
+
+        $this->rc->output->add_handlers(array(
+            'importform' => array($this, 'tpl_cert_import_form'),
+        ));
+
+        $this->rc->output->set_pagetitle($this->enigma->gettext('certimport'));
+        $this->rc->output->send('enigma.certimport');
+    }
+
+    /**
+     * Template object for key import (upload) form
+     */
+    function tpl_cert_import_form($attrib)
+    {
+        $attrib += array('id' => 'rcmCertImportForm');
+
+        $upload = new html_inputfield(array('type' => 'file', 'name' => '_file',
+            'id' => 'rcmimportfile', 'size' => 30));
+
+        $password = new html_inputfield(array('type' => 'password', 'name' => 'password',
+            'id' => 'password', 'size' => 50));
+
+        $form = html::p(null,
+            rcube::Q($this->enigma->gettext('certimporttext'), 'show')
+            . html::br() . html::br() . $upload->show()
+            . html::br() . html::br() . "Password: (optional)" 
+            . html::br() . $password->show()
+        );
+
+        $this->rc->output->add_label('selectimportfile', 'importwait');
+        $this->rc->output->add_gui_object('importform', $attrib['id']);
+
+        $out = $this->rc->output->form_tag(array(
+            'action' => $this->rc->url(array('action' => $this->rc->action, 'a' => 'import')),
+            'method' => 'post',
+            'enctype' => 'multipart/form-data') + $attrib,
+            $form);
+
+        return $out;
+    }
+
+    /**
+     * Server-side certificate generation handler
+     */
+    private function cert_generate()
+    {
+    }
+
+    /**
+     * Certificate generation page handler
+     */
+    private function cert_create()
+    {
+    }
+
+    /**
+     * Template object for certificate generation form
+     */
+    function tpl_cert_create_form($attrib)
+    {
+    }
+
+    /**
+     * Cert deleting
+     */
+    private function cert_delete()
+    {
+    }
+
+    /**
      * Init compose UI (add task button and the menu)
      */
     private function compose_ui()

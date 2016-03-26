@@ -74,7 +74,7 @@ p.enigmaattachment a {
 }
 
 
-/***** Keys/Certs Management *****/
+/***** Keys Management *****/
 
 #settings-sections .enigma.keys a {
   background-image: url(enigma_icons.png);
@@ -161,5 +161,68 @@ p.enigmaattachment a {
 }
 
 #keystoolbar a.export {
+  background-position: center -40px;
+}
+
+/***** Cert Management *****/
+
+#settings-sections .enigma.cert a {
+  background-image: url(enigma_icons.png);
+  background-position: 7px -345px;
+  background-repeat: no-repeat;
+}
+
+#settings-sections .enigma.cert.selected a {
+  background-image: url(enigma_icons.png);
+  background-position: 7px -368px;
+  background-repeat: no-repeat;
+}
+
+#enigmacertlist
+{
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 260px;
+}
+
+#certlistcountbar
+{
+  margin-top: 4px;
+  margin-left: 4px;
+}
+
+#cert-table
+{
+  width: 100%;
+  table-layout: fixed;
+}
+
+#cert-table td
+{
+  text-overflow: ellipsis;
+}
+
+#certtoolbar
+{
+  position: absolute;
+  top: -6px;
+  left: 0;
+  height: 40px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+#certtoolbar a.button
+{
+  background: url(enigma_icons.png) 0 0 no-repeat transparent;
+}
+
+#certtoolbar a.import {
+  background-position: center 0;
+}
+
+#certtoolbar a.export {
   background-position: center -40px;
 }
