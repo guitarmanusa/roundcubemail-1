@@ -111,7 +111,7 @@ class enigma_driver_gnupg extends enigma_driver
      *
      * @return mixed Decrypted message or enigma_error on failure
      */
-    function decrypt($text, $keys = array())
+    function decrypt($text, $keys = array(), $out = '')
     {
         try {
             foreach ($keys as $key => $password) {
