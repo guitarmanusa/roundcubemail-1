@@ -757,7 +757,7 @@ class enigma_engine
         $this->load_smime_driver();
 
         $struct = $p['structure'];
-        $part   = $struct->parts[1];
+        $part   = $p['object']->mime_parts[1];
 
         // Get body and headers
         $body = $this->get_part_body($p['object'], $part, true);
@@ -792,7 +792,7 @@ class enigma_engine
         }
         else {
             $this->decryptions[$part->mime_id] = $result;
-
+            file_put_contents("part.txt", print_r($part,true));
             // Make sure decryption status message will be displayed
             $part->type = 'content';
             $p['object']->parts[] = $part;
