@@ -91,20 +91,55 @@ class enigma_ui
             $this->rc->output->set_pagetitle($this->enigma->gettext('enigmakeys'));
             $this->rc->output->send('enigma.keys');
         }
-/*
+
         // Preferences UI
         else if ($this->rc->action == 'plugin.enigmacerts') {
+            switch ($action) {
+                case 'delete':
+                    $this->cert_delete();
+                    break;
+/*
+                case 'edit':
+                    $this->cert_edit();
+                    break;
+*/
+                case 'import':
+                    $this->cert_import();
+                    break;
+
+                case 'export':
+                    $this->cert_export();
+                    break;
+
+                case 'generate':
+                    $this->cert_generate();
+                    break;
+
+                case 'create':
+                    $this->cert_create();
+                    break;
+
+                case 'search':
+                case 'list':
+                    $this->cert_list();
+                    break;
+
+                case 'info':
+                    $this->cert_info();
+                    break;
+            }
+
             $this->rc->output->add_handlers(array(
-                    'keyslist'     => array($this, 'tpl_certs_list'),
-                    'keyframe'     => array($this, 'tpl_cert_frame'),
-                    'countdisplay' => array($this, 'tpl_certs_rowcount'),
+                    'certlist'     => array($this, 'tpl_cert_list'),
+                    'certframe'     => array($this, 'tpl_cert_frame'),
+                    'countdisplay' => array($this, 'tpl_cert_rowcount'),
                     'searchform'   => array($this->rc->output, 'search_form'),
             ));
 
             $this->rc->output->set_pagetitle($this->enigma->gettext('enigmacerts'));
             $this->rc->output->send('enigma.certs'); 
         }
-*/
+
         // Message composing UI
         else if ($this->rc->action == 'compose') {
             $this->compose_ui();
@@ -695,6 +730,34 @@ class enigma_ui
         $this->rc->output->command('enigma_list');
         $this->rc->output->show_message('enigma.keyremovesuccess', 'confirmation');
         $this->rc->output->send();
+    }
+
+/*--------------------------------------------------------------------------------
+*
+*      S/MIME handlers
+*
+*--------------------------------------------------------------------------------*/
+
+    /**
+     * Template object for key info/edit frame.
+     *
+     * @param array Object attributes
+     *
+     * @return string HTML output
+     */
+    function tpl_cert_frame($attrib)
+    {
+        if (!$attrib['id']) {
+            $attrib['id'] = 'rcmkeysframe';
+        }
+
+        $attrib['name'] = $attrib['id'];
+
+        $this->rc->output->set_env('contentframe', $attrib['name']);
+        $this->rc->output->set_env('blankpage', $attrib['src'] ?
+            $this->rc->output->abs_url($attrib['src']) : 'program/resources/blank.gif');
+
+        return $this->rc->output->frame($attrib);
     }
 
     /**
