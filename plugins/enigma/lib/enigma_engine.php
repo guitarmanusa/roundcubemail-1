@@ -940,6 +940,64 @@ class enigma_engine
 
         return $result;
     }
+<<<<<<< HEAD
+=======
+
+    function get_gpg_pubkey_for_attach($email)
+    {
+        $this->load_pgp_driver();
+        $result = $this->pgp_driver->pubkey_for_attach($email);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+        }
+
+        return $result;
+    }
+
+    function get_keyID($email)
+    {
+        $this->load_pgp_driver();
+        $result = $this->pgp_driver->get_keyID($email);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+        }
+
+        return $result;
+    }
+
+    /**
+     * S/MIME certificate listing.
+     *
+     * @param mixed Key ID/Name pattern
+     *
+     * @return mixed Array of certificates or enigma_error
+     */
+    function list_certs($pattern = '')
+    {
+        $this->load_smime_driver();
+        $result = $this->smime_driver->list_keys($pattern);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+        }
+
+        return $result;
+    }    
+>>>>>>> 34913ec... Implemented attach public pgp key
 
     /**
      * Find PGP private/public key
