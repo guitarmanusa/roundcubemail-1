@@ -300,6 +300,7 @@ class enigma_driver_phpssl extends enigma_driver
             //TODO return enigma error
             return false; 
 
+        //TODO finish
         preg_match($certchain, $certs);
         $results = array();
 
