@@ -940,6 +940,7 @@ class enigma_engine
 
         return $result;
     }
+
     /**
      * S/MIME certificate listing.
      *
