@@ -18,6 +18,7 @@ window.rcmail && rcmail.addEventListener('init', function(evt) {
                 rcmail.keys_list = new rcube_list_widget(rcmail.gui_objects.certlist,
                     {multiselect:true, draggable:false, keyboard:false});
             }
+
             rcmail.keys_list
                 .addEventListener('select', function(o) { rcmail.enigma_keylist_select(o); })
                 .addEventListener('keypress', function(o) { rcmail.enigma_keylist_keypress(o); })

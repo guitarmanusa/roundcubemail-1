@@ -1302,7 +1302,12 @@ class enigma_ui
             rcube::Q($this->enigma->gettext('encryptmsg'))));
         $menu->add(null, $chbox->show($this->rc->config->get('enigma_encrypt_all') ? 1 : 0,
             array('name' => '_enigma_encrypt', 'id' => 'enigmaencryptopt')));
-        
+
+        $menu->add(null, html::label(array('for' => 'enigmaattachpubkeyopt'),
+            rcube::Q($this->enigma->gettext('attachpubkeymsg'))));
+        $menu->add(null, $chbox->show($this->rc->config->get('enigma_attach_pubkey') ? 1 : 0, 
+            array('name' => '_enigma_attachpubkey', 'id' => 'enigmaattachpubkeyopt')));
+
         $menu = html::div(array('id' => 'enigmamenu', 'class' => 'popupmenu'), $menu->show());
 
         // Options menu contents
@@ -1364,6 +1369,10 @@ class enigma_ui
                     $msg = rcube::Q($this->enigma->gettext('decrypterror'));
                 }
             }
+            else if ($status === enigma_engine::ENCRYPTED_PARTIALLY) {
+                $attrib['class'] = 'enigmawarning';
+                $msg = rcube::Q($this->enigma->gettext('decryptpartial'));
+            }
             else {
                 $attrib['class'] = 'enigmanotice';
                 $msg = rcube::Q($this->enigma->gettext('decryptok'));
@@ -1394,8 +1403,9 @@ class enigma_ui
                     $msg = rcube::Q($msg);
                 }
                 else if ($sig->valid) {
-                    $attrib['class'] = 'enigmanotice';
-                    $msg = rcube::Q(str_replace('$sender', $sender, $this->enigma->gettext('sigvalid')));
+                    $attrib['class'] = $sig->partial ? 'enigmawarning' : 'enigmanotice';
+                    $label = 'sigvalid' . ($sig->partial ? 'partial' : '');
+                    $msg = rcube::Q(str_replace('$sender', $sender, $this->enigma->gettext($label)));
                 }
                 else {
                     $attrib['class'] = 'enigmawarning';
@@ -1497,11 +1507,16 @@ class enigma_ui
     }
 
     /**
-     * Handle message_ready hook (encryption/signing)
+     * Handle message_ready hook (encryption/signing/attach public key)
      */
     function message_ready($p)
     {
         $savedraft = !empty($_POST['_draft']) && empty($_GET['_saveonly']);
+
+        if (!$savedraft && rcube_utils::get_input_value('_enigma_attachpubkey', rcube_utils::INPUT_POST)) {
+            $this->enigma->load_engine();
+            $this->enigma->engine->attach_public_key($p['message']);
+        }
 
         if (!$savedraft && rcube_utils::get_input_value('_enigma_sign', rcube_utils::INPUT_POST)) {
             $this->enigma->load_engine();
