@@ -81,9 +81,11 @@ $labels['key4096'] = '4096 bits - more secure';
 $labels['keygenerating'] = 'Generating keys...';
 
 $labels['encryptionoptions'] = 'Encryption options...';
+$labels['pgpoptions'] = 'PGP Options';
 $labels['encryptmsg'] = 'Encrypt this message';
 $labels['signmsg'] = 'Digitally sign this message';
 $labels['attachpubkeymsg'] = 'Attach my public key';
+$labels['smimeoptions'] = 'S/MIME Options';
 
 $labels['enterkeypasstitle'] = 'Enter key passphrase';
 $labels['enterkeypass'] = 'A passphrase is needed to unlock the secret key ($keyid) for user: $user.';

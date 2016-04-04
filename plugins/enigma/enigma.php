@@ -242,8 +242,13 @@ class enigma extends rcube_plugin
 
         $no_override = array_flip((array)$this->rc->config->get('dont_override'));
 
-        $p['blocks']['main']['name'] = $this->gettext('mainoptions');
+        $p['blocks'] = array(
+                'main'           => array('name' => $this->gettext('mainoptions')),
+                'pgp_settings'   => array('name' => $this->gettext('pgpsettings')),
+                'smime_settings' => array('name' => $this->gettext('smimesettings')),
+            );
 
+        // Main settings
         if (!isset($no_override['enigma_encryption'])) {
             if (!$p['current']) {
                 $p['blocks']['main']['content'] = true;
@@ -301,63 +306,6 @@ class enigma extends rcube_plugin
             );
         }
 
-        if (!isset($no_override['enigma_sign_all'])) {
-            if (!$p['current']) {
-                $p['blocks']['main']['content'] = true;
-                return $p;
-            }
-
-            $field_id = 'rcmfd_enigma_sign_all';
-            $input    = new html_checkbox(array(
-                    'name'  => '_enigma_sign_all',
-                    'id'    => $field_id,
-                    'value' => 1,
-            ));
-
-            $p['blocks']['main']['options']['enigma_sign_all'] = array(
-                'title'   => html::label($field_id, $this->gettext('signdefault')),
-                'content' => $input->show($this->rc->config->get('enigma_sign_all') ? 1 : 0),
-            );
-        }
-
-        if (!isset($no_override['enigma_encrypt_all'])) {
-            if (!$p['current']) {
-                $p['blocks']['main']['content'] = true;
-                return $p;
-            }
-
-            $field_id = 'rcmfd_enigma_encrypt_all';
-            $input    = new html_checkbox(array(
-                    'name'  => '_enigma_encrypt_all',
-                    'id'    => $field_id,
-                    'value' => 1,
-            ));
-
-            $p['blocks']['main']['options']['enigma_encrypt_all'] = array(
-                'title'   => html::label($field_id, $this->gettext('encryptdefault')),
-                'content' => $input->show($this->rc->config->get('enigma_encrypt_all') ? 1 : 0),
-            );
-        }
-
-        if (!isset($no_override['enigma_attach_pubkey'])) {
-            if (!$p['current']) {
-                $p['blocks']['main']['content'] = true;
-                return $p;
-            }
-
-            $field_id = 'rcmfd_enigma_attach_pubkey';
-            $input    = new html_checkbox(array(
-                    'name'  => '_enigma_attach_pubkey',
-                    'id'    => $field_id,
-                    'value' => 1,
-            ));
-
-            $p['blocks']['main']['options']['enigma_attach_pubkey'] = array(
-                'title'   => html::label($field_id, $this->gettext('attachpubkeydefault')),
-                'content' => $input->show($this->rc->config->get('enigma_attach_pubkey') ? 1 : 0),
-            );
-        }
-
         if (!isset($no_override['enigma_password_time'])) {
             if (!$p['current']) {
                 $p['blocks']['main']['content'] = true;
@@ -376,6 +324,103 @@ class enigma extends rcube_plugin
             $p['blocks']['main']['options']['enigma_password_time'] = array(
                 'title'   => html::label($field_id, $this->gettext('passwordtime')),
                 'content' => $select->show(intval($this->rc->config->get('enigma_password_time'))),
+            );
+        }
+
+        // PGP Settings
+        if (!isset($no_override['enigma_sign_all'])) {
+            if (!$p['current']) {
+                $p['blocks']['pgp_settings']['content'] = true;
+                return $p;
+            }
+
+            $field_id = 'rcmfd_enigma_sign_all';
+            $input    = new html_checkbox(array(
+                    'name'  => '_enigma_sign_all',
+                    'id'    => $field_id,
+                    'value' => 1,
+            ));
+
+            $p['blocks']['pgp_settings']['options']['enigma_sign_all'] = array(
+                'title'   => html::label($field_id, $this->gettext('signdefault')),
+                'content' => $input->show($this->rc->config->get('enigma_sign_all') ? 1 : 0),
+            );
+        }
+
+        if (!isset($no_override['enigma_encrypt_all'])) {
+            if (!$p['current']) {
+                $p['blocks']['pgp_settings']['content'] = true;
+                return $p;
+            }
+
+            $field_id = 'rcmfd_enigma_encrypt_all';
+            $input    = new html_checkbox(array(
+                    'name'  => '_enigma_encrypt_all',
+                    'id'    => $field_id,
+                    'value' => 1,
+            ));
+
+            $p['blocks']['pgp_settings']['options']['enigma_encrypt_all'] = array(
+                'title'   => html::label($field_id, $this->gettext('encryptdefault')),
+                'content' => $input->show($this->rc->config->get('enigma_encrypt_all') ? 1 : 0),
+            );
+        }
+
+        if (!isset($no_override['enigma_attach_pubkey'])) {
+            if (!$p['current']) {
+                $p['blocks']['pgp_settings']['content'] = true;
+                return $p;
+            }
+
+            $field_id = 'rcmfd_enigma_attach_pubkey';
+            $input    = new html_checkbox(array(
+                    'name'  => '_enigma_attach_pubkey',
+                    'id'    => $field_id,
+                    'value' => 1,
+            ));
+
+            $p['blocks']['pgp_settings']['options']['enigma_attach_pubkey'] = array(
+                'title'   => html::label($field_id, $this->gettext('attachpubkeydefault')),
+                'content' => $input->show($this->rc->config->get('enigma_attach_pubkey') ? 1 : 0),
+            );
+        }
+
+        //SMIME Settings
+        if (!isset($no_override['enigma_sign_all_smime'])) {
+            if (!$p['current']) {
+                $p['blocks']['smime_settings']['content'] = true;
+                return $p;
+            }
+
+            $field_id = 'rcmfd_enigma_sign_all_smime';
+            $input    = new html_checkbox(array(
+                    'name'  => '_enigma_sign_all_smime',
+                    'id'    => $field_id,
+                    'value' => 1,
+            ));
+
+            $p['blocks']['smime_settings']['options']['enigma_sign_all_smime'] = array(
+                'title'   => html::label($field_id, $this->gettext('signdefault')),
+                'content' => $input->show($this->rc->config->get('enigma_sign_all_smime') ? 1 : 0),
+            );
+        }
+
+        if (!isset($no_override['enigma_encrypt_all_smime'])) {
+            if (!$p['current']) {
+                $p['blocks']['smime_settings']['content'] = true;
+                return $p;
+            }
+
+            $field_id = 'rcmfd_enigma_encrypt_all_smime';
+            $input    = new html_checkbox(array(
+                    'name'  => '_enigma_encrypt_all_smime',
+                    'id'    => $field_id,
+                    'value' => 1,
+            ));
+
+            $p['blocks']['smime_settings']['options']['enigma_encrypt_all_smime'] = array(
+                'title'   => html::label($field_id, $this->gettext('encryptdefault')),
+                'content' => $input->show($this->rc->config->get('enigma_encrypt_all_smime') ? 1 : 0),
             );
         }
 
@@ -401,6 +446,8 @@ class enigma extends rcube_plugin
                 'enigma_encrypt_all'   => (bool) rcube_utils::get_input_value('_enigma_encrypt_all', rcube_utils::INPUT_POST),
                 'enigma_attach_pubkey' => (bool) rcube_utils::get_input_value('_enigma_attach_pubkey', rcube_utils::INPUT_POST),
                 'enigma_password_time' => intval(rcube_utils::get_input_value('_enigma_password_time', rcube_utils::INPUT_POST)),
+                'enigma_sign_all_smime'      => (bool) rcube_utils::get_input_value('_enigma_sign_all_smime', rcube_utils::INPUT_POST),
+                'enigma_encrypt_all_smime'   => (bool) rcube_utils::get_input_value('_enigma_encrypt_all_smime', rcube_utils::INPUT_POST),
             );
         }
 

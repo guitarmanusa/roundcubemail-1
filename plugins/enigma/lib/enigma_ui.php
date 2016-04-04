@@ -1293,6 +1293,9 @@ class enigma_ui
         $menu  = new html_table(array('cols' => 2));
         $chbox = new html_checkbox(array('value' => 1));
 
+        $menu->add(array('colspan' => 2), 
+            html::label(null, rcube::Q($this->enigma->gettext('pgpoptions'))));
+
         $menu->add(null, html::label(array('for' => 'enigmasignopt'),
             rcube::Q($this->enigma->gettext('signmsg'))));
         $menu->add(null, $chbox->show($this->rc->config->get('enigma_sign_all') ? 1 : 0,
@@ -1307,6 +1310,19 @@ class enigma_ui
             rcube::Q($this->enigma->gettext('attachpubkeymsg'))));
         $menu->add(null, $chbox->show($this->rc->config->get('enigma_attach_pubkey') ? 1 : 0, 
             array('name' => '_enigma_attachpubkey', 'id' => 'enigmaattachpubkeyopt')));
+
+        $menu->add(array('colspan' => 2), 
+            html::label(null, rcube::Q($this->enigma->gettext('smimeoptions'))));
+
+        $menu->add(null, html::label(array('for' => 'enigmasignoptsmime'),
+            rcube::Q($this->enigma->gettext('signmsg'))));
+        $menu->add(null, $chbox->show($this->rc->config->get('enigma_sign_all_smime') ? 1 : 0,
+            array('name' => '_enigma_sign_smime', 'id' => 'enigmasignoptsmime')));
+
+        $menu->add(null, html::label(array('for' => 'enigmaencryptoptsmime'),
+            rcube::Q($this->enigma->gettext('encryptmsg'))));
+        $menu->add(null, $chbox->show($this->rc->config->get('enigma_encrypt_all_smime') ? 1 : 0,
+            array('name' => '_enigma_encrypt_smime', 'id' => 'enigmaencryptoptsmime')));
 
         $menu = html::div(array('id' => 'enigmamenu', 'class' => 'popupmenu'), $menu->show());
 

@@ -262,6 +262,8 @@ $labels['keyid']          = 'Key ID';
 $labels['keylength']      = 'Bits';
 $labels['keyexpired']     = 'Expired';
 $labels['keyrevoked']     = 'Revoked';
+$labels['pgpsettings']   = 'PGP Settings';
+$labels['smimesettings'] = 'S/MIME Settings';
 
 $labels['editidents']    = 'Edit identities';
 $labels['spellcheck']    = 'Spell';

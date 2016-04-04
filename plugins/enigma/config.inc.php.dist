@@ -38,6 +38,12 @@ $config['enigma_attach_pubkey'] = false;
 // When set to 0 passwords will be stored for the whole session.
 $config['enigma_password_time'] = 5;
 
+// Enable signing all messages with an S/MIME certificate by default
+$config['enigma_sign_all_smime'] = false;
+
+// Enable encrypting all messages with an S/MIME certificate by default
+$config['enigma_encrypt_all_smime'] = false;
+
 // Enables server-side keys generation which would be used
 // if user browser does not support web-crypto features.
 //
