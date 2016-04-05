@@ -804,7 +804,6 @@ class enigma_ui
 
         // Get the list
         $list = $this->enigma->engine->list_certs($search);
-        error_log($list);
 
         if ($list && ($list instanceof enigma_error))
             $this->rc->output->show_message('enigma.certlisterror', 'error');

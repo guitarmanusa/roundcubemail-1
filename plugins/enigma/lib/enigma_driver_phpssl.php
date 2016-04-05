@@ -293,25 +293,31 @@ class enigma_driver_phpssl extends enigma_driver
      */
     public function list_keys($pattern='')
     {
+        //TODO filter on $pattern
         //Open file
-        $certchain = file_get_contents($this->homedir."/user.pem", "r");
+        $certchain = file_get_contents($this->homedir."/user.pem");
 
         if (!$certchain)
-            //TODO return enigma error
-            return false; 
+            return new enigma_error(enigma_error::INTERNAL, "Unable to open user certificate for reading.");
 
-        //TODO finish
-        preg_match($certchain, $certs);
+        // Sum of all certs will be user.pem + all certs in /user_certs folder
+        preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s', $certchain, $user_pub);
+        $certs[] = $user_pub[0];
+
+        foreach ( scandir($this->homedir."/user_certs") as $cert) {
+            if(is_file($this->homedir."/user_certs/".$cert))
+                $certs[] = file_get_contents($this->homedir."/user_certs/".$cert);
+        }
+
         $results = array();
 
         //For each in array(certs)
         foreach ( $certs as $cert ) {
-            //openssl_x509_parse
-            $cert_attribs = openssl_x509_parse($cert);
-                //pull out identifiers, store to array
+            $results[] = $this->parse_cert($cert);
         }
+
         //return array
-        return results;
+        return $results;
     }
 
     public function get_key($keyid)
@@ -399,7 +405,7 @@ class enigma_driver_phpssl extends enigma_driver
     }
 
     /**
-     * Converts S/MIME Certificate object into Enigma's key object
+     * Converts S/MIME Certificate object into Enigma Signature
      *
      * @param filename /path/to/certificate (PEM format)
      * @param validity boolean
@@ -469,5 +475,65 @@ class enigma_driver_phpssl extends enigma_driver
         }
 
         return $ret;
+    }
+
+    /**
+     * Converts PEM formatted S/MIME certificate into Enigma's cert object
+     *
+     * @param string content of PEM certificate file (i.e. "----BEGIN CERTIFICATE----")
+     *
+     * @return enigma_cert Cert object
+     */
+    protected function parse_cert($key)
+    {
+        $key_info = openssl_x509_parse($key);
+
+        if (empty($key_info) || empty($key_info['subject'])) {
+            $errorstr = $this->get_openssl_error();
+            return new enigma_error(enigma_error::INTERNAL, $errorstr);
+        }
+
+        $ecert = new enigma_cert();
+
+        $ecert->id = $key_info['hash'];
+        $ecert->name    = $key_info['subject']['emailAddress'];
+        $ecert->version = $key_info['version'];
+        $ecert->serialNumber = $key_info['serialNumber'];
+        $ecert->algorithm = $key_info['signatureTypeSN'];
+        $ecert->issuer = $key_info['issuer'];
+
+        foreach ($key_info['purposes'] as $purpose) {
+            if ($purpose[2] == 'smimesign')
+                $ecert->canSign = true;
+            elseif ($purpose[2] == 'smimeencrypt')
+                $ecert->canEncrypt = true; 
+        }
+        if (!isset($ecert->canSign))
+            $ecert->canSign = false;
+        if (!isset($ecert->canEncrypt))
+            $ecert->canEncrypt = false;
+
+        $ecert->validFrom = mktime(
+                    intval(substr($key_info['validFrom'],6,2)),  // HH
+                    intval(substr($key_info['validFrom'],8,2)),  // MM (minutes)
+                    intval(substr($key_info['validFrom'],10,2)), // SS
+                    intval(substr($key_info['validFrom'],2,2)),  // MM (month)
+                    intval(substr($key_info['validFrom'],4,2)),  // DD
+                    intval(substr($key_info['validFrom'],0,2))  // YY
+                );
+        $ecert->validTo = mktime(
+                    intval(substr($key_info['validTo'],6,2)),  // HH
+                    intval(substr($key_info['validTo'],8,2)),  // MM (minutes)
+                    intval(substr($key_info['validTo'],10,2)), // SS
+                    intval(substr($key_info['validTo'],2,2)),  // MM (month)
+                    intval(substr($key_info['validTo'],4,2)),  // DD
+                    intval(substr($key_info['validTo'],0,2))  // YY
+                );
+        preg_match('/URI:(.*)/m', $key_info['extensions']['crlDistributionPoints'], $crl);
+        $ecert->crl = $crl[1]; 
+        preg_match('/OCSP - URI:(.*)/m', $key_info['extensions']['authorityInfoAccess'], $ocsp);
+        $ecert->ocsp = $ocsp[1];
+
+        return $ecert;
     }
 }
