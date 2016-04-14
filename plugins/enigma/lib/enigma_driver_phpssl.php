@@ -289,31 +289,51 @@ class enigma_driver_phpssl extends enigma_driver
      *
      * @param string Optional pattern for key ID, user ID or fingerprint
      *
-     * @return mixed Array of enigma_key objects or enigma_error
+     * @return mixed Array of enigma_cert objects or enigma_error
      */
     public function list_keys($pattern='')
     {
-        //TODO filter on $pattern
-        //Open file
-        $certchain = file_get_contents($this->homedir."/user.pem");
-
-        if (!$certchain)
-            return new enigma_error(enigma_error::INTERNAL, "Unable to open user certificate for reading.");
-
-        // Sum of all certs will be user.pem + all certs in /user_certs folder
-        preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s', $certchain, $user_pub);
-        $certs[] = $user_pub[0];
-
-        foreach ( scandir($this->homedir."/user_certs") as $cert) {
-            if(is_file($this->homedir."/user_certs/".$cert))
-                $certs[] = file_get_contents($this->homedir."/user_certs/".$cert);
-        }
-
         $results = array();
 
-        //For each in array(certs)
-        foreach ( $certs as $cert ) {
+        //TODO filter on $pattern
+        if($pattern != '' && file_exists($this->homedir."/user_certs/".$pattern)) {
             $results[] = $this->parse_cert($cert);
+        } else {
+
+            //Open file
+            $certchain = file_get_contents($this->homedir."/user.pem");
+
+            if (!$certchain)
+                return new enigma_error(enigma_error::INTERNAL, "Unable to open user certificate for reading.");
+
+            // Sum of all certs will be user.pem + all certs in /user_certs folder
+            preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s', $certchain, $user_pub);
+            $certs[] = $user_pub[0];
+
+            foreach ( scandir($this->homedir."/user_certs") as $cert) {
+                if(is_file($this->homedir."/user_certs/".$cert))
+                    $certs[] = file_get_contents($this->homedir."/user_certs/".$cert);
+            }
+
+            $matched = array();
+
+            //Parse each cert in certs array
+            foreach ( $certs as $cert ) {
+                $results[] = $this->parse_cert($cert);
+            }
+
+            //see if any certs match search pattern
+            foreach ( $results as $compare ) {
+                if($compare->matches($pattern)) {
+                    $matched[] = $compare;
+                }
+            }
+
+            if(!empty($matched)) {
+                return $matched;
+            } else {
+                return new enigma_error(enigma_error::KEYNOTFOUND, "No certificates found with search parameters.", $pattern);
+            }
         }
 
         //return array
@@ -322,6 +342,14 @@ class enigma_driver_phpssl extends enigma_driver
 
     public function get_key($keyid)
     {
+        $list = $this->list_keys($keyid);
+
+        if (is_array($list)) {
+            return $list[key($list)];
+        }
+
+        // error
+        return $list;
     }
 
     public function gen_key($data)
@@ -425,7 +453,7 @@ class enigma_driver_phpssl extends enigma_driver
 
         $data->id          = $cert['hash']; //?
         $data->valid       = $validity;
-        $data->fingerprint = $cert['serialNumber'];
+        $data->fingerprint = openssl_x509_fingerprint($file);
         $data->created     = $cert['validFrom_time_t'];
         $data->expires     = $cert['validTo_time_t'];
         $data->name        = $cert['subject']['CN'];
@@ -501,6 +529,7 @@ class enigma_driver_phpssl extends enigma_driver
         $ecert->serialNumber = $key_info['serialNumber'];
         $ecert->algorithm = $key_info['signatureTypeSN'];
         $ecert->issuer = $key_info['issuer'];
+        $ecert->fingerprint = openssl_x509_fingerprint($key);
 
         foreach ($key_info['purposes'] as $purpose) {
             if ($purpose[2] == 'smimesign')

@@ -1059,7 +1059,30 @@ class enigma_engine
         }
 
         return $result;
-    }    
+    }
+
+    /**
+     * SMIME cert details.
+     *
+     * @param mixed Key ID
+     *
+     * @return mixed enigma_cert or enigma_error
+     */
+    function get_cert($certid)
+    {
+        $this->load_smime_driver();
+        $result = $this->smime_driver->get_key($certid);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+        }
+
+        return $result;
+    }
 
     /**
      * Find PGP private/public key

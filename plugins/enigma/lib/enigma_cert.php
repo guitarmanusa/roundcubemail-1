@@ -22,6 +22,7 @@ class enigma_cert
     public $name; // email address
     public $version; // x509 cert version number (i.e. 1,2,3)
     public $serialNumber;
+    public $fingerprint;
     public $algorithm;
     public $issuer = array(); // info of CA who signed cert
     public $canSign;    // bool
@@ -148,5 +149,15 @@ class enigma_cert
         }
 
         return $result;
+    }
+
+    function matches($pattern)
+    {
+        if(preg_match("/$pattern/", $this->id) ||
+           preg_match("/$pattern/", $this->name) ||
+           preg_match("/$pattern/", $this->fingerprint))
+            return true;
+        else
+            return false;
     }
 }

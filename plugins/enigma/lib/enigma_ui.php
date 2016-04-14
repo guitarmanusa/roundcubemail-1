@@ -886,9 +886,9 @@ class enigma_ui
         $this->enigma->load_engine();
 
         $id  = rcube_utils::get_input_value('_id', rcube_utils::INPUT_GET);
-        $res = $this->enigma->engine->get_key($id);
+        $res = $this->enigma->engine->get_cert($id);
 
-        if ($res instanceof enigma_key) {
+        if ($res instanceof enigma_cert) {
             $this->data = $res;
         }
         else { // error
@@ -899,7 +899,7 @@ class enigma_ui
 
         $this->rc->output->add_handlers(array(
             'keyname' => array($this, 'tpl_key_name'),
-            'keydata' => array($this, 'tpl_key_data'),
+            'keydata' => array($this, 'tpl_cert_data'),
         ));
 
         $this->rc->output->set_pagetitle($this->enigma->gettext('keyinfo'));
@@ -928,10 +928,10 @@ class enigma_ui
 
         // Key ID
         $table->add('title', $this->enigma->gettext('keyid'));
-        $table->add(null, $this->data->subkeys[0]->get_short_id());
+        $table->add(null, $this->data->id);
 
         // Key type
-        $keytype = $this->data->get_type();
+        /*$keytype = $this->data->get_type();
         if ($keytype == enigma_key::TYPE_KEYPAIR) {
             $type = $this->enigma->gettext('typekeypair');
         }
@@ -939,35 +939,33 @@ class enigma_ui
             $type = $this->enigma->gettext('typepublickey');
         }
         $table->add('title', $this->enigma->gettext('keytype'));
-        $table->add(null, $type);
+        $table->add(null, $type);*/
 
         // Key fingerprint
         $table->add('title', $this->enigma->gettext('fingerprint'));
-        $table->add(null, $this->data->subkeys[0]->get_fingerprint());
+        $table->add(null, $this->data->fingerprint);
 
         $out .= html::tag('fieldset', null,
             html::tag('legend', null,
                 $this->enigma->gettext('basicinfo')) . $table->show($attrib));
 
         // Subkeys
-        $table = new html_table(array('cols' => 5, 'id' => 'enigmasubkeytable', 'class' => 'records-table'));
+        /*$table = new html_table(array('cols' => 5, 'id' => 'enigmasubkeytable', 'class' => 'records-table'));
 
         $table->add_header('id', $this->enigma->gettext('subkeyid'));
         $table->add_header('algo', $this->enigma->gettext('subkeyalgo'));
         $table->add_header('created', $this->enigma->gettext('subkeycreated'));
         $table->add_header('expires', $this->enigma->gettext('subkeyexpires'));
-        $table->add_header('usage', $this->enigma->gettext('subkeyusage'));
+        $table->add_header('usage', $this->enigma->gettext('subkeyusage'));*/
 
         $now         = time();
         $date_format = $this->rc->config->get('date_format', 'Y-m-d');
         $usage_map   = array(
-            enigma_key::CAN_ENCRYPT      => $this->enigma->gettext('typeencrypt'),
-            enigma_key::CAN_SIGN         => $this->enigma->gettext('typesign'),
-            enigma_key::CAN_CERTIFY      => $this->enigma->gettext('typecert'),
-            enigma_key::CAN_AUTHENTICATE => $this->enigma->gettext('typeauth'),
+            enigma_cert::CAN_ENCRYPT      => $this->enigma->gettext('typeencrypt'),
+            enigma_cert::CAN_SIGN         => $this->enigma->gettext('typesign'),
         );
 
-        foreach ($this->data->subkeys as $subkey) {
+        /*foreach ($this->data->subkeys as $subkey) {
             $algo = $subkey->get_algorithm();
             if ($algo && $subkey->length) {
                 $algo .= ' (' . $subkey->length . ')';
@@ -990,7 +988,7 @@ class enigma_ui
 
         $out .= html::tag('fieldset', null,
             html::tag('legend', null,
-                $this->enigma->gettext('subkeys')) . $table->show());
+                $this->enigma->gettext('subkeys')) . $table->show());*/
 
         // Additional user IDs
         $table = new html_table(array('cols' => 2, 'id' => 'enigmausertable', 'class' => 'records-table'));
@@ -998,7 +996,7 @@ class enigma_ui
         $table->add_header('id', $this->enigma->gettext('userid'));
         $table->add_header('valid', $this->enigma->gettext('uservalid'));
 
-        foreach ($this->data->users as $user) {
+        /*foreach ($this->data->users as $user) {
             $username = $user->name;
             if ($user->comment) {
                 $username .= ' (' . $user->comment . ')';
@@ -1012,7 +1010,7 @@ class enigma_ui
 
         $out .= html::tag('fieldset', null,
             html::tag('legend', null,
-                $this->enigma->gettext('userids')) . $table->show());
+                $this->enigma->gettext('userids')) . $table->show());*/
 
         return $out;
     }
