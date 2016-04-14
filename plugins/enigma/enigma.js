@@ -389,12 +389,18 @@ rcube_webmail.prototype.enigma_clear_list = function()
 // Adds a row to the list
 rcube_webmail.prototype.enigma_add_list_row = function(r)
 {
-    if (!this.gui_objects.keyslist || !this.keys_list)
+    if ((!this.gui_objects.keyslist || !this.keys_list) && (!this.gui_objects.certlist || !this.keys_list))
         return false;
 
-    var list = this.keys_list,
-        tbody = this.gui_objects.keyslist.tBodies[0],
-        rowcount = tbody.rows.length,
+    var list = this.keys_list;
+
+    if (this.gui_objects.keyslist) {
+            tbody = this.gui_objects.keyslist.tBodies[0];
+    } else if (this.gui_objects.certlist) {
+            tbody = this.gui_objects.certlist.tBodies[0];
+    }
+
+    var rowcount = tbody.rows.length,
         even = rowcount%2,
         css_class = 'message'
             + (even ? ' even' : ' odd'),
