@@ -451,7 +451,7 @@ class enigma_driver_phpssl extends enigma_driver
 
         $data->id          = $cert['hash']; //?
         $data->valid       = $validity;
-        $data->fingerprint = openssl_x509_fingerprint($file);
+        $data->fingerprint = openssl_x509_fingerprint(file_get_contents($file));
         $data->created     = $cert['validFrom_time_t'];
         $data->expires     = $cert['validTo_time_t'];
         $data->name        = $cert['subject']['CN'];
