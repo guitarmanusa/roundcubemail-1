@@ -300,11 +300,9 @@ class enigma_driver_phpssl extends enigma_driver
             $results[] = $this->parse_cert($cert);
         } else {
 
-            //Open file
-            $certchain = file_get_contents($this->homedir."/user.pem");
-
-            if (!$certchain)
-                return new enigma_error(enigma_error::INTERNAL, "Unable to open user certificate for reading.");
+            //Attempt opening file
+            if (!($certchain = file_get_contents($this->homedir."/user.pem")))
+                return $results;  //shows "No certificates found" rather than error
 
             // Sum of all certs will be user.pem + all certs in /user_certs folder
             preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s', $certchain, $user_pub);
