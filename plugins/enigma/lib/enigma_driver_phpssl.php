@@ -110,7 +110,7 @@ class enigma_driver_phpssl extends enigma_driver
      *
      * @return mixed True if decrypt successful, enigma_error if failed
     **/
-    function decrypt($infilename, $keys = array(), $outfilename = '')
+    function decrypt($infilename, $keys = array(), $outfilename = '', $password = '')
     {
         if(empty($keys) || is_null($keys)) {
             if(file_exists($this->homedir."/user.pem")) {
