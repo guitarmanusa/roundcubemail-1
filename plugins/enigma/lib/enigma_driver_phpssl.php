@@ -130,8 +130,38 @@ class enigma_driver_phpssl extends enigma_driver
         }
     }
 
-    function sign($text, $key, $passwd, $mode = null)
+
+    /**
+     * Signing
+     *
+     * @param string File containing full MIME Message body
+     *               only include headers if message will not also be encrypted
+     * @param string filename of file containing pub/priv keypair for signing
+     * @param string password for decrypting private key (if encrypted)
+     * @param mixed  Headers to be included for signing, null if none
+     *
+     * @return mixed filename of signed message or enigma_error
+     */
+    function sign($msg, $keyfile, $passwd = "", $headers = null)
     {
+        $temp_plain  = tempnam($this->homedir,"plain");
+        file_put_contents($temp_plain, $msg);
+    	$temp_signed = tempnam($this->homedir,"signed");
+
+    	if ($headers === null)
+    	    $headers = array();
+
+    	$result = openssl_pkcs7_sign($temp_plain, $temp_signed, "file://".$keyfile,
+    		array("file://".$keyfile, $passwd),
+		    $headers
+        );
+        
+        @unlink($temp_plain);
+        
+        if ($result === true)
+            return $temp_signed;
+        else
+            return new enigma_error(enigma_error::INTERNAL, "Failed to sign message.");
     }
 
     /**
@@ -295,7 +325,7 @@ class enigma_driver_phpssl extends enigma_driver
     {
         $results = array();
 
-        //TODO filter on $pattern
+        // filter on $pattern
         if($pattern != '' && file_exists($this->homedir."/user_certs/".$pattern)) {
             $results[] = $this->parse_cert($cert);
         } else {
