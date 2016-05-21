@@ -1290,6 +1290,7 @@ class enigma_ui
         $menu  = new html_table(array('cols' => 2));
         $chbox = new html_checkbox(array('value' => 1));
 
+        /* PGP Menu Options */
         $menu->add(array('colspan' => 2), 
             html::label(null, rcube::Q($this->enigma->gettext('pgpoptions'))));
 
@@ -1308,6 +1309,7 @@ class enigma_ui
         $menu->add(null, $chbox->show($this->rc->config->get('enigma_attach_pubkey') ? 1 : 0, 
             array('name' => '_enigma_attachpubkey', 'id' => 'enigmaattachpubkeyopt')));
 
+        /* SMIME Menu Options */
         $menu->add(array('colspan' => 2), 
             html::label(null, rcube::Q($this->enigma->gettext('smimeoptions'))));
 
@@ -1524,27 +1526,68 @@ class enigma_ui
      */
     function message_ready($p)
     {
-        $savedraft = !empty($_POST['_draft']) && empty($_GET['_saveonly']);
+        $savedraft     = !empty($_POST['_draft']) && empty($_GET['_saveonly']);
+        $pgp_sign      = rcube_utils::get_input_value('_enigma_sign', rcube_utils::INPUT_POST);
+        $pgp_encrypt   = rcube_utils::get_input_value('_enigma_encrypt', rcube_utils::INPUT_POST);
+        $smime_sign    = rcube_utils::get_input_value('_enigma_sign_smime', rcube_utils::INPUT_POST);
+        $smime_encrypt = rcube_utils::get_input_value('_enigma_encrypt_smime', rcube_utils::INPUT_POST);
 
         if (!$savedraft && rcube_utils::get_input_value('_enigma_attachpubkey', rcube_utils::INPUT_POST)) {
             $this->enigma->load_engine();
             $this->enigma->engine->attach_public_key($p['message']);
         }
 
-        if (!$savedraft && rcube_utils::get_input_value('_enigma_sign', rcube_utils::INPUT_POST)) {
+        /* PGP Sign */
+        if (!$savedraft && ($pgp_sign && (!$smime_sign && !$smime_encrypt))) {
             $this->enigma->load_engine();
-            $status = $this->enigma->engine->sign_message($p['message']);
+            $status = $this->enigma->engine->sign_message_pgp($p['message']);
             $mode   = 'sign';
+        } else if ($pgp_sign && ($smime_sign || $smime_encrypt)) {
+            //TODO alert user of error
+            $mode = 'incompatible_options_';
+            $err = 1;
         }
 
-        if ((!$status instanceof enigma_error) && rcube_utils::get_input_value('_enigma_encrypt', rcube_utils::INPUT_POST)) {
+        /* PGP Encrypt */
+        if ((!$status instanceof enigma_error) && ($pgp_encrypt && (!$smime_sign && !$smime_encrypt))) {
             $this->enigma->load_engine();
-            $status = $this->enigma->engine->encrypt_message($p['message'], null, $savedraft);
+            $status = $this->enigma->engine->encrypt_message_pgp($p['message'], null, $savedraft);
             $mode   = 'encrypt';
+        } else if ($pgp_encrypt && ($smime_sign || $smime_encrypt)) {
+            //TODO alert user of error
+            $mode = 'incompatible_options_';
+            $err = 2;
         }
 
-        if ($mode && ($status instanceof enigma_error)) {
-            $code = $status->getCode();
+        /* SMIME Sign */
+        if (!$savedraft && ($smime_sign && (!$pgp_sign && !$pgp_encrypt))) {
+            $this->enigma->load_engine();
+            if ($smime_encrypt && $smime_encrypt)  // if signing then encrypting
+                $status = $this->enigma->engine->sign_message_smime($p['message'], false);  //no headers
+            else {  // if signing only
+                $status = $this->enigma->engine->sign_message_smime($p['message'], true);   //include headers
+            }
+            $mode = 'sign';
+        } else if ($smime_sign && ($pgp_sign || $pgp_encrypt)) {
+            //TODO alert user of error
+            $mode = 'incompatible_options_';
+            $err = 3;
+        }
+
+        /* SMIME Encrypt  */
+        if ((!$status instanceof enigma_error) && ($smime_encrypt && (!$pgp_sign && !$pgp_encrypt))) {
+            $this->enigma->load_engine();
+            $status = $this->enigma->engine->encrypt_message_smime($p['message'], null, $savedraft);
+            $mode   = 'encrypt';
+        } else if ($smime_encrypt && ($pgp_sign || $pgp_encrypt)) {
+            //TODO alert user of error
+            $mode = 'incompatible_options_';
+            $err = 4;
+        }
+
+        if (($mode && ($status instanceof enigma_error)) || $mode == 'incompatible_options_') {
+            if($status)
+                $code = $status->getCode();
 
             if ($code == enigma_error::KEYNOTFOUND) {
                 $vars = array('email' => $status->getData('missing'));

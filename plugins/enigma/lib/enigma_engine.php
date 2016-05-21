@@ -29,6 +29,7 @@ class enigma_engine
     private $pgp_driver;
     private $smime_driver;
     private $password_time;
+    private $homedir;
 
     public $decryptions     = array();
     public $signatures      = array();
@@ -51,47 +52,13 @@ class enigma_engine
     {
         $this->rc     = rcmail::get_instance();
         $this->enigma = $enigma;
+        $this->homedir = $this->rc->config->get('enigma_smime_homedir', INSTALL_PATH . 'plugins/enigma/home');
 
         $this->password_time = $this->rc->config->get('enigma_password_time') * 60;
 
         // this will remove passwords from session after some time
         if ($this->password_time) {
             $this->get_passwords();
-        }
-    }
-
-    /**
-     * PGP driver initialization.
-     */
-    function load_pgp_driver()
-    {
-        if ($this->pgp_driver) {
-            return;
-        }
-
-        $driver   = 'enigma_driver_' . $this->rc->config->get('enigma_pgp_driver', 'gnupg');
-        $username = $this->rc->user->get_username();
-
-        // Load driver
-        $this->pgp_driver = new $driver($username);
-
-        if (!$this->pgp_driver) {
-            rcube::raise_error(array(
-                'code' => 600, 'type' => 'php',
-                'file' => __FILE__, 'line' => __LINE__,
-                'message' => "Enigma plugin: Unable to load PGP driver: $driver"
-            ), true, true);
-        }
-
-        // Initialise driver
-        $result = $this->pgp_driver->init();
-
-        if ($result instanceof enigma_error) {
-            rcube::raise_error(array(
-                'code' => 600, 'type' => 'php',
-                'file' => __FILE__, 'line' => __LINE__,
-                'message' => "Enigma plugin: ".$result->getMessage()
-            ), true, true);
         }
     }
 
@@ -131,6 +98,205 @@ class enigma_engine
     }
 
     /**
+     * Handler for SMIME message signing
+     *
+     * @param Mail_mime Original message
+     * @param bool      Include headers in signing
+     *
+     * @return enigma_error On error returns error object
+     */
+    function sign_message_smime(&$message, $include_headers = false)
+    {
+        $mime = new enigma_mime_message($message, enigma_mime_message::SMIME_SIGNED);
+        $from = $mime->getFromAddress();
+
+        // find private key
+        $key = $this->find_cert($from, true);
+
+        if (empty($key)) {
+            return new enigma_error(enigma_error::KEYNOTFOUND);
+        }
+
+        // check if we have password for this key
+        $passwords = $this->get_passwords();
+        $pass      = $passwords[$key[0]->id];  // S/MIME certs do have an ID, can be used
+
+        if ($pass === null) {
+            // ask for password
+            $error = array('missing' => array($key[0]->id => $key[0]->name));
+            return new enigma_error(enigma_error::BADPASS, '', $error);
+        }
+
+        $headers = null;
+
+        if ($include_headers) { //send whole message, less MIME and Content Headers
+            $headers = $mime->headers();
+            unset($headers['Content-Type']);
+            unset($headers['MIME-Version']);
+            if ($headers['Content-Transfer-Encoding'])
+                unset($headers['Content-Transfer-Encoding']);
+
+            $body = $mime->getOrigBody();
+        }
+        else //skip headers
+            $body = $mime->getMessageBody();
+
+        // sign the body TODO fix calling user.pem
+        $result = $this->smime_sign($body, $this->homedir.'/'.$headers['From'].'/user.pem', $pass, $headers);
+
+        if ($result instanceof enigma_error) {
+            if ($result->getCode() == enigma_error::BADPASS) {
+                // ask for password
+                $error = array('bad' => array($key[0]->id => $key[0]->name));
+                return new enigma_error(enigma_error::BADPASS, '', $error);
+            }
+
+            return $result;
+        } // replace message body
+        else {
+            preg_match('/.*micalg="sha-256"; boundary=.*/', $result, $boundary);
+            $boundary[0] = preg_replace('/.*micalg="sha-256"; boundary=/','', $boundary[0]);
+            $boundary[0] = substr($boundary[0], 1, -1);
+            $parts = explode("--".$boundary[0], $result);
+
+            /*convert openssl generated pkcs7 signature from base64 encoding
+              to raw binary.  Will be encoded back to base64 when encoded for 
+              transmitting, otherwise signature will be "double" base64 encoded*/
+            $parts[count($parts)-2] = base64_decode(
+                trim(
+                    implode("", 
+                        array_slice(
+                            explode("\n", $parts[count($parts)-2])
+                        , 4)
+                    )
+                )
+            );
+
+            $mime->addSignature($parts[count($parts)-2]);
+            $message = $mime;
+        }
+    }
+
+    /**
+     * Handler for SMIME message encryption
+     *
+     * @param Mail_mime Original message
+     * @param int       Encryption mode
+     * @param bool      Is draft-save action - use only sender's key for encryption
+     *
+     * @return enigma_error On error returns error object
+     */
+    function encrypt_message_smime(&$message, $mode = null, $is_draft = false)
+    {
+/*
+        $mime = new enigma_mime_message($message, enigma_mime_message::PGP_ENCRYPTED);
+
+        // always use sender's key
+        $recipients = array($mime->getFromAddress());
+
+        // if it's not a draft we add all recipients' keys
+        if (!$is_draft) {
+            $recipients = array_merge($recipients, $mime->getRecipients());
+        }
+
+        if (empty($recipients)) {
+            return new enigma_error(enigma_error::KEYNOTFOUND);
+        }
+
+        $recipients = array_unique($recipients);
+
+        // find recipient public keys
+        foreach ((array) $recipients as $email) {
+            $key = $this->find_cert($email);
+
+            if (empty($key)) {
+                return new enigma_error(enigma_error::KEYNOTFOUND, '', array(
+                    'missing' => $email
+                ));
+            }
+
+            $keys[] = $key->id;
+        }
+
+        // select mode
+        switch ($mode) {
+        case self::ENCRYPT_MODE_BODY:
+            $encrypt_mode = $mode;
+            break;
+
+        case self::ENCRYPT_MODE_MIME:
+            $encrypt_mode = $mode;
+            break;
+
+        default:
+            $encrypt_mode = $mime->isMultipart() ? self::ENCRYPT_MODE_MIME : self::ENCRYPT_MODE_BODY;
+        }
+
+        // get message body
+        if ($encrypt_mode == self::ENCRYPT_MODE_BODY) {
+            // in this mode we'll replace text part
+            // with the one containing encrypted message
+            $body = $message->getTXTBody();
+        }
+        else {
+            // here we'll build PGP/MIME message
+            $body = $mime->getOrigBody();
+        }
+
+        // sign the body
+        $result = $this->pgp_encrypt($body, $keys);
+
+        if ($result !== true) {
+            return $result;
+        }
+
+        // replace message body
+        if ($encrypt_mode == self::ENCRYPT_MODE_BODY) {
+            $message->setTXTBody($body);
+        }
+        else {
+            $mime->setPGPEncryptedBody($body);
+            $message = $mime;
+        }
+*/
+    }
+
+    /**
+     * PGP driver initialization.
+     */
+    function load_pgp_driver()
+    {
+        if ($this->pgp_driver) {
+            return;
+        }
+
+        $driver   = 'enigma_driver_' . $this->rc->config->get('enigma_pgp_driver', 'gnupg');
+        $username = $this->rc->user->get_username();
+
+        // Load driver
+        $this->pgp_driver = new $driver($username);
+
+        if (!$this->pgp_driver) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: Unable to load PGP driver: $driver"
+            ), true, true);
+        }
+
+        // Initialise driver
+        $result = $this->pgp_driver->init();
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: ".$result->getMessage()
+            ), true, true);
+        }
+    }
+
+    /**
      * Handler for message signing
      *
      * @param Mail_mime Original message
@@ -138,7 +304,7 @@ class enigma_engine
      *
      * @return enigma_error On error returns error object
      */
-    function sign_message(&$message, $mode = null)
+    function sign_message_pgp(&$message, $mode = null)
     {
         $mime = new enigma_mime_message($message, enigma_mime_message::PGP_SIGNED);
         $from = $mime->getFromAddress();
@@ -225,7 +391,7 @@ class enigma_engine
             $message->setParam('text_charset', $text_charset);
         }
         else {
-            $mime->addPGPSignature($body);
+            $mime->addSignature($body);
             $message = $mime;
         }
     }
@@ -239,7 +405,7 @@ class enigma_engine
      *
      * @return enigma_error On error returns error object
      */
-    function encrypt_message(&$message, $mode = null, $is_draft = false)
+    function encrypt_message_pgp(&$message, $mode = null, $is_draft = false)
     {
         $mime = new enigma_mime_message($message, enigma_mime_message::PGP_ENCRYPTED);
 
@@ -688,7 +854,7 @@ class enigma_engine
         }
 
         // openssl_pkcs7_verify must read in from a file, can't pass string
-	$body_file = tempnam($this->homedir,"body");
+	    $body_file = tempnam($this->homedir,"body");
         file_put_contents($body_file, print_r($body,true));
 
         // Verify
@@ -987,6 +1153,35 @@ class enigma_engine
     }
 
     /**
+     * S/MIME message signing
+     *
+     * @param string Message to be signed
+     * @param string file name of private key for signing
+     * @param string Key passphrase
+     * @param mixed  Headers to be included, null if none
+     *
+     * @return mixed Contents of signed message (plain text) or enigma_error
+     */
+    private function smime_sign($msg, $keyfile, $password, $headers = null)
+    {
+        // @TODO: Handle big bodies using (temp) files
+        $result = $this->smime_driver->sign($msg, $keyfile, $password, $headers);
+
+        if ($result instanceof enigma_error) {
+            $err_code = $result->getCode();
+            if (!in_array($err_code, array(enigma_error::KEYNOTFOUND, enigma_error::BADPASS)))
+                rcube::raise_error(array(
+                    'code' => 600, 'type' => 'php',
+                    'file' => __FILE__, 'line' => __LINE__,
+                    'message' => "Enigma plugin: " . $result->getMessage()
+                    ), true, false);
+            return $result;
+        }
+
+        return file_get_contents($result);
+    }
+
+    /**
      * PGP message encrypting
      *
      * @param mixed Message body
@@ -1115,6 +1310,41 @@ class enigma_engine
                 return $key;
             }
         }
+    }
+
+    /**
+     * Find S/MIME private/public certificate pair
+     *
+     * @param string E-mail address
+     * @param bool   Need a key for signing?
+     *
+     * @return enigma_key The key
+     */
+    function find_cert($email, $can_sign = false)
+    {
+        $this->load_smime_driver();
+        $result = $this->smime_driver->list_keys($email);
+
+        if ($result instanceof enigma_error) {
+            rcube::raise_error(array(
+                'code' => 600, 'type' => 'php',
+                'file' => __FILE__, 'line' => __LINE__,
+                'message' => "Enigma plugin: " . $result->getMessage()
+                ), true, false);
+
+            return;
+        } else {
+            return $result;
+        }
+
+        /*$mode = $can_sign ? enigma_key::CAN_SIGN : enigma_key::CAN_ENCRYPT;
+
+        // check key validity and type
+        foreach ($result as $key) {
+            if ($keyid = $key->find_subkey($email, $mode)) {
+                return $key;
+            }
+        }*/
     }
 
     /**

@@ -12,13 +12,16 @@
  |                                                                         |
  +-------------------------------------------------------------------------+
  | Author: Aleksander Machniak <alec@alec.pl>                              |
+ |         Kyle Francis <kyle@linuxtoolbox.ninja>                          |
  +-------------------------------------------------------------------------+
 */
 
 class enigma_mime_message extends Mail_mime
 {
-    const PGP_SIGNED    = 1;
-    const PGP_ENCRYPTED = 2;
+    const PGP_SIGNED      = 1;
+    const PGP_ENCRYPTED   = 2;
+    const SMIME_SIGNED    = 3;
+    const SMIME_ENCRYPTED = 4;
 
     protected $type;
     protected $message;
@@ -139,11 +142,15 @@ class enigma_mime_message extends Mail_mime
      *
      * @param string Signature body
      */
-    public function addPGPSignature($body)
+    public function addSignature($body)
     {
         $this->signature = $body;
         // Reset Content-Type to be overwritten with valid boundary
         unset($this->headers['Content-Type']);
+        // get a new boundary for SMIME signed since the signature will be the
+        //     outermost MIME wrapper
+        if ($this->type == self::SMIME_SIGNED)
+            unset($this->build_params['boundary']);
     }
 
     /**
@@ -229,6 +236,38 @@ class enigma_mime_message extends Mail_mime
                     'disposition'  => 'inline',
                     'filename'     => 'encrypted.asc',
             ));
+        } else if ($this->type == self::SMIME_SIGNED) {
+            $params = array(
+                'preamble'      => "This is an S/MIME signed message",
+                'content_type'  => "multipart/signed; protocol=\"application/x-pkcs7-signature\"; micalg=\"sha-256\"",
+                'eol'           => $this->build_params['eol'],
+            );
+
+            $message = new Mail_mimePart('', $params);
+
+            if (!empty($this->body)) {
+                $headers = $this->message->headers();
+                $params  = array('content_type' => $headers['Content-Type']);
+
+                if ($headers['Content-Transfer-Encoding']) {
+                    $params['encoding'] = $headers['Content-Transfer-Encoding'];
+                }
+
+                $message->addSubpart($this->body, $params);
+            }
+
+            if (!empty($this->signature)) {
+                $message->addSubpart($this->signature, array(
+                    'filename'     => 'smime.p7s',
+                    'content_type' => 'application/pkcs7-signature',
+                    'disposition'  => 'attachment',
+                    'encoding'     => 'base64',
+                    'description'  => 'S/MIME Cryptographic Signature',
+                ));
+            }
+
+        } else if ($this->type == self::SMIME_ENCRYPTED) {
+            //TODO
         }
 
         // Use saved boundary
@@ -255,6 +294,14 @@ class enigma_mime_message extends Mail_mime
                 return $output;
             }
             $this->headers = array_merge($this->headers, $output['headers']);
+            /* update the boundary build_param or else multipart messages will
+               have the inner boundary and not the outer boundary making them
+               unreadable to most MUA's */
+            if ($boundary == null) {
+                preg_match('/boundary="([^"]+)"/', $this->headers['Content-Type'], $m);
+                $this->build_params['boundary'] = $m[1];
+            }
+
             return $output['body'];
         }
     }
@@ -293,6 +340,11 @@ class enigma_mime_message extends Mail_mime
         else if ($this->type == self::PGP_ENCRYPTED) {
             $headers['Content-Type'] = "multipart/encrypted;$eol"
                 ." protocol=\"application/pgp-encrypted\";$eol"
+                ." boundary=\"$boundary\"";
+        }
+        else if ($this->type == self::SMIME_SIGNED) {
+            $headers['Content-Type'] = "multipart/signed; micalg=\"sha-256\";$eol"
+                ." protocol=\"application/x-pkcs7-signature\";$eol"
                 ." boundary=\"$boundary\"";
         }
 

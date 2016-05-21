@@ -146,18 +146,18 @@ class enigma_driver_phpssl extends enigma_driver
     {
         $temp_plain  = tempnam($this->homedir,"plain");
         file_put_contents($temp_plain, $msg);
-    	$temp_signed = tempnam($this->homedir,"signed");
+        $temp_signed = tempnam($this->homedir,"signed");
 
-    	if ($headers === null)
-    	    $headers = array();
+        if ($headers === null)
+            $headers = array();
 
-    	$result = openssl_pkcs7_sign($temp_plain, $temp_signed, "file://".$keyfile,
-    		array("file://".$keyfile, $passwd),
-		    $headers
+        $result = openssl_pkcs7_sign($temp_plain, $temp_signed, "file://".$keyfile,
+            array("file://".$keyfile, $passwd),
+            $headers
         );
-        
+
         @unlink($temp_plain);
-        
+
         if ($result === true)
             return $temp_signed;
         else
