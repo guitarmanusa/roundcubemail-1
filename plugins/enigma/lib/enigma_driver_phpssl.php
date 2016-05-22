@@ -113,12 +113,12 @@ class enigma_driver_phpssl extends enigma_driver
     function decrypt($infilename, $keys = array(), $outfilename = '', $password = '')
     {
         if(empty($keys) || is_null($keys)) {
-            if(file_exists($this->homedir."/user.pem")) {
-                $user_certs = file_get_contents($this->homedir."/user.pem");
+            if(file_exists($this->homedir."/user_certs/".$this->user)) {
+                $user_certs = file_get_contents($this->homedir."/user_certs/".$this->user);
                 $keys = explode("-----END CERTIFICATE-----", $user_certs);
                 $keys[0] .= "-----END CERTIFICATE-----\n";
             } else {
-                return new enigma_error(enigma_error::INTERNAL, "No certificate for user found.");
+                return new enigma_error(enigma_error::INTERNAL, "No certificate for ".$this->user." found.");
             }
         }
         $result = openssl_pkcs7_decrypt($infilename, $outfilename, $keys[0], $keys[1]);
@@ -206,7 +206,7 @@ class enigma_driver_phpssl extends enigma_driver
     public function import($cert_store, $isfile=false, $password='')
     {
         //TODO should only be importing PKCS #12 store with user's Cert/PKey
-        //  stored in plugins/enigma/home/<username>/user.pem
+        //  stored in plugins/enigma/home/<username>/user_certs/<username>
         //or additional trusted Root CA certificates
 
         $ca_dir = $this->homedir . '/ca_certs';
@@ -237,15 +237,22 @@ class enigma_driver_phpssl extends enigma_driver
                             $can_encrypt = true;
                     }
                     if ($can_sign && $can_encrypt) {
-                        if (file_exists($this->homedir."/user.pem")) {
-                            $existing_cert = file_get_contents($this->homedir."/user.pem");
+                        if (file_exists($this->homedir."/user_certs/".$this->user)) {
+                            $existing_cert = file_get_contents($this->homedir."/user_certs/".$this->user);
                             $existing_cert = openssl_x509_parse($existing_cert);
                             if($existing_cert['cert'] == $pubcert['cert']) {
                                 $results['unchanged'] += 1;
                             }
                         } else {
-                            file_put_contents($this->homedir."/user.pem", $cert_info['cert'].$cert_info['pkey']);
-                            chmod($this->homedir."/user.pem", 0700);
+                            //Prompt for passphrase
+                            $passphrase = "";
+                            //Export public key
+                            openssl_pkey_export($cert_info, $cert_info['pkey'], $passphrase);
+                            //Export private key
+                            
+                            //Write to file
+                            file_put_contents($this->homedir."/user_certs/".$this->user, $cert_info['cert'].$cert_info['pkey']);
+                            chmod($this->homedir."/user_certs/".$this->user, 0700);
                             $results['imported'] += 1;  //not counting private key, personal preference...
                         }
                     } else {
@@ -327,20 +334,26 @@ class enigma_driver_phpssl extends enigma_driver
 
         // filter on $pattern
         if($pattern != '' && file_exists($this->homedir."/user_certs/".$pattern)) {
+            $cert = file_get_contents($this->homedir."/user_certs/".$pattern);
             $results[] = $this->parse_cert($cert);
         } else {
 
             //Attempt opening file
-            if (!($certchain = file_get_contents($this->homedir."/user.pem")))
+            if (!($certchain = file_get_contents($this->homedir."/user_certs/".$this->user)))
                 return $results;  //shows "No certificates found" rather than error
 
-            // Sum of all certs will be user.pem + all certs in /user_certs folder
-            preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s', $certchain, $user_pub);
-            $certs[] = $user_pub[0];
-
             foreach ( scandir($this->homedir."/user_certs") as $cert) {
-                if(is_file($this->homedir."/user_certs/".$cert))
-                    $certs[] = file_get_contents($this->homedir."/user_certs/".$cert);
+                if (is_file($this->homedir."/user_certs/".$cert)) {
+                    $cert_content = file_get_contents($this->homedir."/user_certs/".$cert);
+
+                    // user has public and private keys, just want pubkey
+                    if ($cert == $this->user) {
+                        preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s',
+                                    $cert_content, $user_pub);
+                        $certs[] = $user_pub[0];
+                    } else
+                        $certs[] = $cert_content;
+                }
             }
 
             $matched = array();

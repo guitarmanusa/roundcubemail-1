@@ -141,8 +141,8 @@ class enigma_engine
         else //skip headers
             $body = $mime->getMessageBody();
 
-        // sign the body TODO fix calling user.pem
-        $result = $this->smime_sign($body, $this->homedir.'/'.$headers['From'].'/user.pem', $pass, $headers);
+        // sign the body
+        $result = $this->smime_sign($body, $this->homedir.'/'.$headers['From'].'/user_certs/'.$headers['From'], $pass, $headers);
 
         if ($result instanceof enigma_error) {
             if ($result->getCode() == enigma_error::BADPASS) {
