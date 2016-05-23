@@ -161,7 +161,7 @@ class enigma_driver_phpssl extends enigma_driver
         if ($result === true)
             return $temp_signed;
         else
-            return new enigma_error(enigma_error::INTERNAL, "Failed to sign message.");
+            return new enigma_error(enigma_error::BADPASS, "Failed to sign message.");
     }
 
     /**
