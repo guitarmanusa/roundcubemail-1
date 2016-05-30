@@ -52,7 +52,8 @@ class enigma_engine
     {
         $this->rc     = rcmail::get_instance();
         $this->enigma = $enigma;
-        $this->homedir = $this->rc->config->get('enigma_smime_homedir', INSTALL_PATH . 'plugins/enigma/home');
+        $this->user   = $this->rc->user->get_username();
+        $this->homedir = $this->rc->config->get('enigma_smime_homedir', INSTALL_PATH . 'plugins/enigma/home/'.$this->user);
 
         $this->password_time = $this->rc->config->get('enigma_password_time') * 60;
 
@@ -72,10 +73,9 @@ class enigma_engine
         }
 
         $driver   = 'enigma_driver_' . $this->rc->config->get('enigma_smime_driver', 'phpssl');
-        $username = $this->rc->user->get_username();
 
         // Load driver
-        $this->smime_driver = new $driver($username);
+        $this->smime_driver = new $driver($this->user);
 
         if (!$this->smime_driver) {
             rcube::raise_error(array(
