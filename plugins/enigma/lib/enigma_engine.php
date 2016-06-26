@@ -1122,6 +1122,47 @@ class enigma_engine
     }
 
     /**
+     * S/MIME message decryption.
+     *
+     * @param mixed Message body
+     *
+     * @return mixed True or enigma_error
+     */
+    private function smime_decrypt(&$msg_body, $infilename, $outfilename)
+    {
+        // @TODO: Handle big bodies using (temp) files
+        // find private key
+        $key = $this->find_cert($this->user);
+
+        if (empty($key)) {
+            return new enigma_error(enigma_error::KEYNOTFOUND);
+        }
+
+        // check if we have password for this key
+        $passwords = $this->get_passwords();
+        if ($passwords !== null)
+            $pass = $passwords[$key[0]->id];  // S/MIME certs do have an ID, can be used
+
+        $result = $this->smime_driver->decrypt($infilename, null, $outfilename, $pass);
+        file_put_contents("result.txt", print_r($result, true));
+
+        if ($result instanceof enigma_error) {
+            $err_code = $result->getCode();
+            if (!in_array($err_code, array(enigma_error::KEYNOTFOUND, enigma_error::BADPASS)))
+                rcube::raise_error(array(
+                    'code' => 600, 'type' => 'php',
+                    'file' => __FILE__, 'line' => __LINE__,
+                    'message' => "Enigma plugin: " . $result->getMessage()
+                    ), true, false);
+            return $result;
+        } else if ($result) {
+            $msg_body = file_get_contents($outfilename);
+        }
+
+        return true;
+    }
+
+    /**
      * PGP message signing
      *
      * @param mixed  Message body
