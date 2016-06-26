@@ -53,7 +53,7 @@ class enigma_engine
         $this->rc     = rcmail::get_instance();
         $this->enigma = $enigma;
         $this->user   = $this->rc->user->get_username();
-        $this->homedir = $this->rc->config->get('enigma_smime_homedir', INSTALL_PATH . 'plugins/enigma/home/'.$this->user);
+        $this->homedir = $this->rc->config->get('enigma_smime_homedir', INSTALL_PATH . 'plugins/enigma/home');
 
         $this->password_time = $this->rc->config->get('enigma_password_time') * 60;
 
@@ -854,7 +854,7 @@ class enigma_engine
         }
 
         // openssl_pkcs7_verify must read in from a file, can't pass string
-	    $body_file = tempnam($this->homedir,"body");
+	    $body_file = tempnam($this->homedir."/".$this->user,"body");
         file_put_contents($body_file, print_r($body,true));
 
         // Verify
@@ -1025,16 +1025,16 @@ class enigma_engine
         // Get body and headers
         $body = $this->get_part_body($p['object'], $part, true);
 
-        $infilename  = tempnam($this->homedir,"encmsg");
-        $outfilename = tempnam($this->homedir,"decmsg"); // make sure you can write to this file
+        $infilename  = tempnam($this->homedir."/".$this->user,"encmsg");
+        $outfilename = tempnam($this->homedir."/".$this->user,"decmsg"); // make sure you can write to this file
 
         file_put_contents($infilename, $body);
-        // Decrypt
-        $result = $this->smime_driver->decrypt($infilename, null, $outfilename);
 
+        // Decrypt
+        $result = $this->smime_decrypt($body, $infilename, $outfilename);
+        
         if ($result === true) {
             // Parse decrypted message
-            $body = file_get_contents($outfilename);
             $struct = $this->parse_body($body);
 
             // Modify original message structure
