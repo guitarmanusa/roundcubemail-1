@@ -121,12 +121,14 @@ class enigma_driver_phpssl extends enigma_driver
                 return new enigma_error(enigma_error::INTERNAL, "No certificate for ".$this->user." found.");
             }
         }
-        $result = openssl_pkcs7_decrypt($infilename, $outfilename, $keys[0], $keys[1]);
+        $private = array($keys[0].$keys[1], $password);
+        $result = openssl_pkcs7_decrypt($infilename, $outfilename, $keys[0], $private);
 
         if ($result === true) {
             return true;
         } else {
-            return new enigma_error(enigma_error::INTERNAL, "Failed to decrypt message.");
+            return new enigma_error(enigma_error::BADPASS, "Failed to decrypt message.",
+                array("bad" => null, "missing" => $this->user));
         }
     }
 
