@@ -127,8 +127,10 @@ class enigma_driver_phpssl extends enigma_driver
         if ($result === true) {
             return true;
         } else {
+            // TODO check if missing or just incorrect/bad
+            $key_id = $this->list_keys($this->user);
             return new enigma_error(enigma_error::BADPASS, "Failed to decrypt message.",
-                array("bad" => null, "missing" => $this->user));
+                array("bad" => null, "missing" => array($key_id[0]->id => $this->user)));
         }
     }
 

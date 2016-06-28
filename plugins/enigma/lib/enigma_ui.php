@@ -1342,7 +1342,7 @@ class enigma_ui
     function status_message($p)
     {
         // skip: not a message part
-        if ($p['part'] instanceof rcube_message) {
+        if ($p['part'] instanceof rcube_message && $p['part']->mime_parts[1]->ctype_secondary != 'pkcs7-mime') {
             return $p;
         }
 
@@ -1351,8 +1351,12 @@ class enigma_ui
             return $p;
         }
 
+        if($p['part']->mime_parts[1]->ctype_secondary == 'pkcs7-mime')
+            $part_id = $p['part']->mime_parts[1]->mime_id;
+        else
+            $part_id = $p['part']->mime_id;
+
         $engine  = $this->enigma->engine;
-        $part_id = $p['part']->mime_id;
 
         // Decryption status
         if (($found = $this->find_part_id($part_id, $engine->decryptions)) !== null
