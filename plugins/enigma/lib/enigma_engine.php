@@ -188,8 +188,8 @@ class enigma_engine
      */
     function encrypt_message_smime(&$message, $mode = null, $is_draft = false)
     {
-/*
-        $mime = new enigma_mime_message($message, enigma_mime_message::PGP_ENCRYPTED);
+
+        $mime = new enigma_mime_message($message, enigma_mime_message::SMIME_ENCRYPTED);
 
         // always use sender's key
         $recipients = array($mime->getFromAddress());
@@ -215,50 +215,47 @@ class enigma_engine
                 ));
             }
 
-            $keys[] = $key->id;
-        }
-
-        // select mode
-        switch ($mode) {
-        case self::ENCRYPT_MODE_BODY:
-            $encrypt_mode = $mode;
-            break;
-
-        case self::ENCRYPT_MODE_MIME:
-            $encrypt_mode = $mode;
-            break;
-
-        default:
-            $encrypt_mode = $mime->isMultipart() ? self::ENCRYPT_MODE_MIME : self::ENCRYPT_MODE_BODY;
+            $keys[$email] = $key[0];
         }
 
         // get message body
-        if ($encrypt_mode == self::ENCRYPT_MODE_BODY) {
-            // in this mode we'll replace text part
-            // with the one containing encrypted message
-            $body = $message->getTXTBody();
-        }
-        else {
-            // here we'll build PGP/MIME message
-            $body = $mime->getOrigBody();
-        }
+        $body = $message->txtHeaders();
+        $body .= $mime->getOrigBody();
 
         // sign the body
-        $result = $this->pgp_encrypt($body, $keys);
+        $result = $this->smime_encrypt($body, $keys);
 
         if ($result !== true) {
             return $result;
         }
 
-        // replace message body
-        if ($encrypt_mode == self::ENCRYPT_MODE_BODY) {
-            $message->setTXTBody($body);
-        }
-        else {
-            $mime->setPGPEncryptedBody($body);
-            $message = $mime;
-        }
-*/
+        /* S/MIME encrypted messages consist of one attachment "smime.p7m"
+        *  so instead of wrestling the new attachment into the old message,
+        *  make a new message, copy headers and insert the attachment.
+        *  Content headers will be set by enigma_mime_message.
+        */
+        $new_message = new Mail_mime();
+        $new_headers = $message->headers(null, false, true);
+        if(isset($new_headers['Content-Type']))
+            unset($new_headers['Content-Type']);
+        if(isset($new_headers['Content-Transfer-Encoding']))
+            unset($new_headers['Content-Transfer-Encoding']);
+        if(isset($new_headers['Content-Disposition']))
+            unset($new_headers['Content-Disposition']);
+        if(isset($new_headers['Content-Description']))
+            unset($new_headers['Content-Description']);
+
+        $new_message->headers(array_merge($new_headers,
+                                          array('Content-Type' => 'application/pkcs7-mime; name="smime.p7m"; smime-type=enveloped-data',
+                                                'Content-Transfer-Encoding' => 'base64',
+                                                'Content-Disposition' => 'attachment; filename="smime.p7m"',
+                                                'Content-Description' => 'S/MIME Encrypted Message')
+                                          ), true, false);
+        $new_message->setTXTBody($body);
+        $new_message = new enigma_mime_message($new_message, enigma_mime_message::SMIME_ENCRYPTED);
+
+        // overwrite the old message with the new
+        $message = $new_message;
     }
 
     /**
@@ -1254,6 +1251,35 @@ class enigma_engine
     }
 
     /**
+     * S/MIME message encrypting
+     *
+     * @param mixed Message body
+     * @param array Keys
+     *
+     * @return mixed True or enigma_error
+     */
+    private function smime_encrypt(&$msg_body, $keys)
+    {
+        // @TODO: Handle big bodies using (temp) files
+        $result = $this->smime_driver->encrypt($msg_body, $keys);
+
+        if ($result instanceof enigma_error) {
+            $err_code = $result->getCode();
+            if (!in_array($err_code, array(enigma_error::KEYNOTFOUND, enigma_error::BADPASS)))
+                rcube::raise_error(array(
+                    'code' => 600, 'type' => 'php',
+                    'file' => __FILE__, 'line' => __LINE__,
+                    'message' => "Enigma plugin: " . $result->getMessage()
+                    ), true, false);
+            return $result;
+        }
+
+        $msg_body = $result;
+
+        return true;
+    }
+
+    /**
      * PGP keys listing.
      *
      * @param mixed Key ID/Name pattern
@@ -1379,15 +1405,6 @@ class enigma_engine
         } else {
             return $result;
         }
-
-        /*$mode = $can_sign ? enigma_key::CAN_SIGN : enigma_key::CAN_ENCRYPT;
-
-        // check key validity and type
-        foreach ($result as $key) {
-            if ($keyid = $key->find_subkey($email, $mode)) {
-                return $key;
-            }
-        }*/
     }
 
     /**

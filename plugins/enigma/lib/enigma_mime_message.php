@@ -267,7 +267,13 @@ class enigma_mime_message extends Mail_mime
             }
 
         } else if ($this->type == self::SMIME_ENCRYPTED) {
-            //TODO
+            $params = array(
+                'content_type'  => "application/pkcs7-mime; name=\"smime.p7m\"; smime-type=\"enveloped-data\"",
+                'encoding'      => "base64",
+                'disposition'   => 'attachment; filename="smime.p7m"',
+                'filename'      => 'smime.p7m',
+                'eol'           => $this->build_params['eol'],
+            );
         }
 
         // Use saved boundary
@@ -289,6 +295,9 @@ class enigma_mime_message extends Mail_mime
             return null;
         }
         else {
+            if (gettype($message) == 'NULL')
+                return $this->body;
+
             $output = $message->encode($boundary, $skip_head);
             if ($this->isError($output)) {
                 return $output;
@@ -346,6 +355,10 @@ class enigma_mime_message extends Mail_mime
             $headers['Content-Type'] = "multipart/signed; micalg=\"sha-256\";$eol"
                 ." protocol=\"application/x-pkcs7-signature\";$eol"
                 ." boundary=\"$boundary\"";
+        } else if ($this->type == self::SMIME_ENCRYPTED) {
+            $headers['Content-Type'] = "application/pkcs7-mime; name=\"smime.p7m\";$eol"
+                ." smime-type=enveloped-data";
+            $headers['Content-Transfer-Encoding'] = "base64";
         }
 
         return $headers;

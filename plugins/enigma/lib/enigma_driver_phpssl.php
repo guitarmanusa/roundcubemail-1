@@ -97,8 +97,49 @@ class enigma_driver_phpssl extends enigma_driver
         
     }
 
+    /**
+     * Message encryption.
+     *
+     * @param string Full text of message (including headeres) to be encrypted
+     * @param array  Keys to use for encryption
+     *
+     * @return mixed string encrypted message if successful, enigma_error if failed
+    **/
     function encrypt($text, $keys)
     {
+        $plaintext = tempnam($this->homedir, "plain");
+        $ciphertext = tempnam($this->homedir, "enc");
+        file_put_contents($plaintext, $text);
+
+        //headers
+        $_headers = explode("\r\n", explode("\r\n\r\n", $text)[0]);
+        foreach($_headers as $line) {
+            if($line[0] != " ") {
+                $line = explode(": ", $line);
+                $headers[$line[0]] = $line[1];
+            }
+        }
+        unset($headers['Content-Type']);
+        unset($headers['Content-Transfer-Encoding']);
+
+        $recipcerts = array();
+
+        foreach($keys as $email => $enigmacert) {
+            preg_match('/-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----/s',
+                       file_get_contents($this->homedir."/user_certs/".$email), $cert_content);
+            $recipcerts[] = $cert_content[0];
+        }
+
+        $result = openssl_pkcs7_encrypt($plaintext, $ciphertext, $recipcerts, $headers, 0, OPENSSL_CIPHER_AES_256_CBC);
+        $cipherbody = explode("\n\n", file_get_contents($ciphertext));
+
+        @unlink($plaintext);
+        @unlink($ciphertext);
+
+        if($result) {
+            return $cipherbody[1];
+        } else
+            return new enigma_error(enigma_error::INTERNAL, "Failed to encrypt message.");
     }
 
     /**
@@ -118,7 +159,7 @@ class enigma_driver_phpssl extends enigma_driver
                 $keys = explode("-----END CERTIFICATE-----", $user_certs);
                 $keys[0] .= "-----END CERTIFICATE-----\n";
             } else {
-                return new enigma_error(enigma_error::INTERNAL, "No certificate for ".$this->user." found.");
+                return new enigma_error(enigma_error::KEYNOTFOUND, "No certificate for ".$this->user." found.");
             }
         }
         $private = array($keys[0].$keys[1], $password);
