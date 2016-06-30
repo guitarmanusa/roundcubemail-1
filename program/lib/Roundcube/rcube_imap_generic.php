@@ -1128,35 +1128,61 @@ class rcube_imap_generic
 
             $response = explode("\r\n", $response);
             foreach ($response as $line) {
-                if (preg_match('/^\* ([0-9]+) (EXISTS|RECENT)$/i', $line, $m)) {
-                    $this->data[strtoupper($m[2])] = (int) $m[1];
-                }
-                else if (preg_match('/^\* OK \[/i', $line, $match)) {
-                    $line = substr($line, 6);
-                    if (preg_match('/^(UIDNEXT|UIDVALIDITY|UNSEEN) ([0-9]+)/i', $line, $match)) {
-                        $this->data[strtoupper($match[1])] = (int) $match[2];
-                    }
-                    else if (preg_match('/^(HIGHESTMODSEQ) ([0-9]+)/i', $line, $match)) {
-                        $this->data[strtoupper($match[1])] = (string) $match[2];
-                    }
-                    else if (preg_match('/^(NOMODSEQ)/i', $line, $match)) {
-                        $this->data[strtoupper($match[1])] = true;
-                    }
-                    else if (preg_match('/^PERMANENTFLAGS \(([^\)]+)\)/iU', $line, $match)) {
-                        $this->data['PERMANENTFLAGS'] = explode(' ', $match[1]);
-                    }
-                }
-                // QRESYNC FETCH response (RFC5162)
-                else if (preg_match('/^\* ([0-9+]) FETCH/i', $line, $match)) {
-                    $line       = substr($line, strlen($match[0]));
-                    $fetch_data = $this->tokenizeResponse($line, 1);
-                    $data       = array('id' => $match[1]);
+                if (preg_match('/^\* OK \[/i', $line)) {
+                    $pos   = strcspn($line, ' ]', 6);
+                    $token = strtoupper(substr($line, 6, $pos));
+                    $pos   += 7;
 
-                    for ($i=0, $size=count($fetch_data); $i<$size; $i+=2) {
-                        $data[strtolower($fetch_data[$i])] = $fetch_data[$i+1];
-                    }
+                    switch ($token) {
+                    case 'UIDNEXT':
+                    case 'UIDVALIDITY':
+                    case 'UNSEEN':
+                        if ($len = strspn($line, '0123456789', $pos)) {
+                            $this->data[$token] = (int) substr($line, $pos, $len);
+                        }
+                        break;
 
-                    $this->data['QRESYNC'][$data['uid']] = $data;
+                    case 'HIGHESTMODSEQ':
+                        if ($len = strspn($line, '0123456789', $pos)) {
+                            $this->data[$token] = (string) substr($line, $pos, $len);
+                        }
+                        break;
+
+                    case 'NOMODSEQ':
+                        $this->data[$token] = true;
+                        break;
+
+                    case 'PERMANENTFLAGS':
+                        $start = strpos($line, '(', $pos);
+                        $end   = strrpos($line, ')');
+                        if ($start && $end) {
+                            $flags = substr($line, $start + 1, $end - $start - 1);
+                            $this->data[$token] = explode(' ', $flags);
+                        }
+                        break;
+                    }
+                }
+                else if (preg_match('/^\* ([0-9]+) (EXISTS|RECENT|FETCH)/i', $line, $match)) {
+                    $token = strtoupper($match[2]);
+                    switch ($token) {
+                    case 'EXISTS':
+                    case 'RECENT':
+                        $this->data[$token] = (int) $match[1];
+                        break;
+
+                    case 'FETCH':
+                        // QRESYNC FETCH response (RFC5162)
+                        $line       = substr($line, strlen($match[0]));
+                        $fetch_data = $this->tokenizeResponse($line, 1);
+                        $data       = array('id' => $match[1]);
+
+                        for ($i=0, $size=count($fetch_data); $i<$size; $i+=2) {
+                            $data[strtolower($fetch_data[$i])] = $fetch_data[$i+1];
+                        }
+
+                        $this->data['QRESYNC'][$data['uid']] = $data;
+                        break;
+                    }
                 }
                 // QRESYNC VANISHED response (RFC5162)
                 else if (preg_match('/^\* VANISHED [()EARLIER]*/i', $line, $match)) {
@@ -2034,12 +2060,12 @@ class rcube_imap_generic
                     if (preg_match('/BODY\[HEADER\.FIELDS \("*DATE"*\)\] (.*)/', $line, $matches)) {
                         $value = preg_replace(array('/^"*[a-z]+:/i'), '', $matches[1]);
                         $value = trim($value);
-                        $result[$id] = $this->strToTime($value);
+                        $result[$id] = rcube_utils::strtotime($value);
                     }
                     // non-existent/empty Date: header, use INTERNALDATE
                     if (empty($result[$id])) {
                         if (preg_match('/INTERNALDATE "([^"]+)"/', $line, $matches)) {
-                            $result[$id] = $this->strToTime($matches[1]);
+                            $result[$id] = rcube_utils::strtotime($matches[1]);
                         }
                         else {
                             $result[$id] = 0;
@@ -2071,7 +2097,7 @@ class rcube_imap_generic
                 }
                 else if ($mode == 4) {
                     if (preg_match('/INTERNALDATE "([^"]+)"/', $line, $matches)) {
-                        $result[$id] = $this->strToTime($matches[1]);
+                        $result[$id] = rcube_utils::strtotime($matches[1]);
                     }
                     else {
                         $result[$id] = 0;
@@ -2400,7 +2426,7 @@ class rcube_imap_generic
                     else if ($name == 'INTERNALDATE') {
                         $result[$id]->internaldate = $value;
                         $result[$id]->date         = $value;
-                        $result[$id]->timestamp    = $this->StrToTime($value);
+                        $result[$id]->timestamp    = rcube_utils::strtotime($value);
                     }
                     else if ($name == 'FLAGS') {
                         if (!empty($value)) {
@@ -2465,7 +2491,7 @@ class rcube_imap_generic
                         switch ($field) {
                         case 'date';
                             $result[$id]->date = $string;
-                            $result[$id]->timestamp = $this->strToTime($string);
+                            $result[$id]->timestamp = rcube_utils::strtotime($string);
                             break;
                         case 'to':
                             $result[$id]->to = preg_replace('/undisclosed-recipients:[;,]*/', '', $string);
@@ -2614,7 +2640,7 @@ class rcube_imap_generic
             case 'date':
             case 'internaldate':
             case 'timestamp':
-                $value = self::strToTime($headers->$field);
+                $value = rcube_utils::strtotime($headers->$field);
                 if (!$value && $field != 'timestamp') {
                     $value = $headers->timestamp;
                 }
@@ -3960,44 +3986,6 @@ class rcube_imap_generic
         }
 
         return implode(' ', (array)$flags);
-    }
-
-    /**
-     * Converts datetime string into unix timestamp
-     *
-     * @param string $date Date string
-     *
-     * @return int Unix timestamp
-     */
-    protected static function strToTime($date)
-    {
-        // Clean malformed data
-        $date = preg_replace(
-            array(
-                '/GMT\s*([+-][0-9]+)/',                     // support non-standard "GMTXXXX" literal
-                '/[^a-z0-9\x20\x09:+-]/i',                  // remove any invalid characters
-                '/\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*/i',   // remove weekday names
-            ),
-            array(
-                '\\1',
-                '',
-                '',
-            ), $date);
-
-        $date = trim($date);
-
-        // if date parsing fails, we have a date in non-rfc format
-        // remove token from the end and try again
-        while (($ts = intval(@strtotime($date))) <= 0) {
-            $d = explode(' ', $date);
-            array_pop($d);
-            if (empty($d)) {
-                break;
-            }
-            $date = implode(' ', $d);
-        }
-
-        return $ts < 0 ? 0 : $ts;
     }
 
     /**

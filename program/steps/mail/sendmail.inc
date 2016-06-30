@@ -189,11 +189,17 @@ if ($hdr = rcube_utils::get_input_value('_followupto', rcube_utils::INPUT_POST, 
 }
 
 // remember reply/forward UIDs in special headers
-if (!empty($COMPOSE['reply_uid']) && $savedraft) {
-    $headers['X-Draft-Info'] = array('type' => 'reply', 'uid' => $COMPOSE['reply_uid']);
-}
-else if (!empty($COMPOSE['forward_uid']) && $savedraft) {
-    $headers['X-Draft-Info'] = array('type' => 'forward', 'uid' => rcube_imap_generic::compressMessageSet($COMPOSE['forward_uid']));
+if ($savedraft) {
+    // Note: We ignore <UID>.<PART> forwards/replies here
+    if (($uid = $COMPOSE['reply_uid']) && !preg_match('/^\d+\.[0-9.]+$/', $uid)) {
+        $headers['X-Draft-Info'] = array('type' => 'reply', 'uid' => $uid);
+    }
+    else if (!empty($COMPOSE['forward_uid'])
+        && ($uid = rcube_imap_generic::compressMessageSet($COMPOSE['forward_uid']))
+        && !preg_match('/^\d+[0-9.]+$/', $uid)
+    ) {
+        $headers['X-Draft-Info'] = array('type' => 'forward', 'uid' => $uid);
+    }
 }
 
 if (!empty($COMPOSE['reply_msgid'])) {
@@ -388,14 +394,19 @@ if ($isHtml) {
     $plainTextPart = rcube_mime::wordwrap($plainTextPart, $LINE_LENGTH, "\r\n", false, $message_charset);
     $plainTextPart = wordwrap($plainTextPart, 998, "\r\n", true);
 
-    // make sure all line endings are CRLF (#1486712)
-    $plainTextPart = preg_replace('/\r?\n/', "\r\n", $plainTextPart);
+    // There's no sense to use multipart/alternative if the text/plain
+    // part would be blank. Completely blank text/plain part may confuse
+    // some mail clients (#5283)
+    if (strlen(trim($plainTextPart)) > 0) {
+        // make sure all line endings are CRLF (#1486712)
+        $plainTextPart = preg_replace('/\r?\n/', "\r\n", $plainTextPart);
 
-    $plugin = $RCMAIL->plugins->exec_hook('message_outgoing_body',
-        array('body' => $plainTextPart, 'type' => 'alternative', 'message' => $MAIL_MIME));
+        $plugin = $RCMAIL->plugins->exec_hook('message_outgoing_body',
+            array('body' => $plainTextPart, 'type' => 'alternative', 'message' => $MAIL_MIME));
 
-    // add a plain text version of the e-mail as an alternative part.
-    $MAIL_MIME->setTXTBody($plugin['body']);
+        // add a plain text version of the e-mail as an alternative part.
+        $MAIL_MIME->setTXTBody($plugin['body']);
+    }
 
     // Extract image Data URIs into message attachments (#1488502)
     rcmail_extract_inline_images($MAIL_MIME, $from);
@@ -550,12 +561,18 @@ if (!$savedraft && !$saveonly) {
     // set replied/forwarded flag
     if ($COMPOSE['reply_uid']) {
         foreach (rcmail::get_uids($COMPOSE['reply_uid'], $COMPOSE['mailbox']) as $mbox => $uids) {
-            $RCMAIL->storage->set_flag($uids, 'ANSWERED', $mbox);
+            // skip <UID>.<PART> replies
+            if (!preg_match('/^\d+\.[0-9.]+$/', implode(',', (array) $uids))) {
+                $RCMAIL->storage->set_flag($uids, 'ANSWERED', $mbox);
+            }
         }
     }
     else if ($COMPOSE['forward_uid']) {
         foreach (rcmail::get_uids($COMPOSE['forward_uid'], $COMPOSE['mailbox']) as $mbox => $uids) {
-            $RCMAIL->storage->set_flag($uids, 'FORWARDED', $mbox);
+            // skip <UID>.<PART> forwards
+            if (!preg_match('/^\d+\.[0-9.]+$/', implode(',', (array) $uids))) {
+                $RCMAIL->storage->set_flag($uids, 'FORWARDED', $mbox);
+            }
         }
     }
 }

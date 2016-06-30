@@ -191,6 +191,14 @@ $labels['ariasummaryfilterslist'] = 'List of filters';
 $labels['ariasummaryfiltersetslist'] = 'List of filter sets';
 $labels['filterstitle'] = 'Edit incoming mail filters';
 $labels['vacationtitle'] = 'Edit out-of-office rule';
+$labels['message'] = 'Message';
+$labels['duplicate'] = 'is duplicate';
+$labels['notduplicate'] = 'is not duplicate';
+$labels['duplicate.handle'] = 'handle:';
+$labels['duplicate.header'] = 'header:';
+$labels['duplicate.uniqueid'] = 'identifier:';
+$labels['duplicate.seconds'] = 'timeout (seconds):';
+$labels['duplicate.last'] = 'relative to the last execution';
 
 $messages = array();
 $messages['filterunknownerror'] = 'Unknown server error.';
@@ -199,6 +207,7 @@ $messages['filterdeleteerror'] = 'Unable to delete filter. Server error occurred
 $messages['filterdeleted'] = 'Filter deleted successfully.';
 $messages['filtersaved'] = 'Filter saved successfully.';
 $messages['filtersaveerror'] = 'Unable to save filter. Server error occurred.';
+$messages['filterformerror'] = 'Filter form contains errors.';
 $messages['filterdeleteconfirm'] = 'Do you really want to delete selected filter?';
 $messages['ruledeleteconfirm'] = 'Are you sure, you want to delete selected rule?';
 $messages['actiondeleteconfirm'] = 'Are you sure, you want to delete selected action?';
@@ -228,5 +237,6 @@ $messages['invaliddateformat'] = 'Invalid date or date part format';
 $messages['saveerror'] = 'Unable to save data. Server error occurred.';
 $messages['vacationsaved'] = 'Vacation data saved successfully.';
 $messages['emptyvacationbody'] = 'Body of vacation message is required!';
+$messages['duplicate.conflict.err'] = 'Both header and unique identifier are not allowed.';
 
 ?>

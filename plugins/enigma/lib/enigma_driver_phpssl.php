@@ -105,7 +105,7 @@ class enigma_driver_phpssl extends enigma_driver
      *
      * @return mixed string encrypted message if successful, enigma_error if failed
     **/
-    function encrypt($text, $keys)
+    function encrypt($text, $keys, $sign_key = null)
     {
         $plaintext = tempnam($this->homedir, "plain");
         $ciphertext = tempnam($this->homedir, "enc");

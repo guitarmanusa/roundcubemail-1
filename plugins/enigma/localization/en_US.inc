@@ -5,7 +5,7 @@
  | plugins/enigma/localization/<lang>.inc                                |
  |                                                                       |
  | Localization file of the Roundcube Webmail ACL plugin                 |
- | Copyright (C) 2012-2015, The Roundcube Dev Team                       |
+ | Copyright (C) 2012-2016, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -13,7 +13,7 @@
  |                                                                       |
  +-----------------------------------------------------------------------+
 
- For translation see https://www.transifex.com/projects/p/roundcube-webmail/resource/enigma/
+ For translation see https://www.transifex.com/roundcube/roundcube-webmail/plugin-enigma/
 */
 
 $labels = array();
@@ -93,6 +93,10 @@ $labels['enterkeypasstitle'] = 'Enter key passphrase';
 $labels['enterkeypass'] = 'A passphrase is needed to unlock the secret key ($keyid) for user: $user.';
 $labels['arialabelkeyexportoptions'] = 'Keys export options';
 $labels['attachpubkeymsg'] = 'Attach my public key';
+
+$labels['keyexportprompt'] = 'Do you want to include secret keys in the saved OpenPGP keys file?';
+$labels['onlypubkeys'] = 'Export Public Keys Only';
+$labels['withprivkeys'] = 'Export Secret Keys';
 
 $messages = array();
 $messages['sigvalid'] = 'Verified signature from $sender.';

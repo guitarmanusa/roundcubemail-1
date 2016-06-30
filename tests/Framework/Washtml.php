@@ -15,7 +15,9 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
     {
         // #1488850
         $html = '<p><a href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">Firefox</a>'
-            .'<a href="vbscript:alert(document.cookie)">Internet Explorer</a></p>';
+            .'<a href="vbscript:alert(document.cookie)">Internet Explorer</a></p>'
+            .'<p><A href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">Firefox</a>'
+            .'<A HREF="vbscript:alert(document.cookie)">Internet Explorer</a></p>';
 
         $washer = new rcube_washtml;
         $washed = $washer->wash($html);
@@ -35,6 +37,26 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
         $washed = $washer->wash($html);
 
         $this->assertRegExp('|href="http://test.com">|', $washed, "Link href with newlines (#1488940)");
+    }
+
+    /**
+     * Test XSS in area's href (#5240)
+     */
+    function test_href_area()
+    {
+        $html = '<p><area href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">'
+            . '<area href="vbscript:alert(document.cookie)">Internet Explorer</p>'
+            . '<area href="javascript:alert(document.domain)" shape=default>'
+            . '<p><AREA HREF="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">'
+            . '<Area href="vbscript:alert(document.cookie)">Internet Explorer</p>'
+            . '<area HREF="javascript:alert(document.domain)" shape=default>';
+
+        $washer = new rcube_washtml;
+        $washed = $washer->wash($html);
+
+        $this->assertNotRegExp('/data:text/', $washed, "data:text/html in area href");
+        $this->assertNotRegExp('/vbscript:/', $washed, "vbscript: in area href");
+        $this->assertNotRegExp('/javascript:/', $washed, "javascript: in area href");
     }
 
     /**

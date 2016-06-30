@@ -678,6 +678,7 @@ table.messagelist.fixedcopy
 .messagelist tr > .threads .listmenu,
 .messagelist tr > .attachment span.attachment,
 .messagelist tr > .attachment span.report,
+.messagelist tr > .attachment span.encrypted,
 .messagelist tr > .priority span.priority,
 .messagelist tr > .priority span.prio1,
 .messagelist tr > .priority span.prio2,
@@ -716,6 +717,11 @@ table.messagelist.fixedcopy
   background-position: 0 -255px;
 }
 
+.messagelist tr > .attachment span.encrypted
+{
+  background-position: 0 -418px;
+}
+
 .messagelist tr > .priority span.priority
 {
   background-position: 0 -309px;
@@ -744,6 +750,11 @@ table.messagelist.fixedcopy
 .messagelist tr > .priority span.prio1
 {
   background-position: 0 -290px;
+}
+
+.messagelist tr.flaggedroot td.flag span
+{
+  background-position: 0 -136px;
 }
 
 .messagelist tr > .flag span.flagged

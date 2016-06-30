@@ -40,41 +40,54 @@ class enigma_driver_gnupg extends enigma_driver
     function init()
     {
         $homedir = $this->rc->config->get('enigma_pgp_homedir', INSTALL_PATH . 'plugins/enigma/home');
+        $debug   = $this->rc->config->get('enigma_debug');
+        $binary  = $this->rc->config->get('enigma_pgp_binary');
 
-        if (!$homedir)
+        if (!$homedir) {
             return new enigma_error(enigma_error::INTERNAL,
                 "Option 'enigma_pgp_homedir' not specified");
+        }
 
         // check if homedir exists (create it if not) and is readable
-        if (!file_exists($homedir))
+        if (!file_exists($homedir)) {
             return new enigma_error(enigma_error::INTERNAL,
                 "Keys directory doesn't exists: $homedir");
-        if (!is_writable($homedir))
+        }
+        if (!is_writable($homedir)) {
             return new enigma_error(enigma_error::INTERNAL,
                 "Keys directory isn't writeable: $homedir");
+        }
 
         $homedir = $homedir . '/' . $this->user;
 
         // check if user's homedir exists (create it if not) and is readable
-        if (!file_exists($homedir))
+        if (!file_exists($homedir)) {
             mkdir($homedir, 0700);
+        }
 
-        if (!file_exists($homedir))
+        if (!file_exists($homedir)) {
             return new enigma_error(enigma_error::INTERNAL,
                 "Unable to create keys directory: $homedir");
-        if (!is_writable($homedir))
+        }
+        if (!is_writable($homedir)) {
             return new enigma_error(enigma_error::INTERNAL,
                 "Unable to write to keys directory: $homedir");
+        }
 
         $this->homedir = $homedir;
 
+        $options = array('homedir' => $this->homedir);
+
+        if ($debug) {
+            $options['debug'] = array($this, 'debug');
+        }
+        if ($binary) {
+            $options['binary'] = $binary;
+        }
+
         // Create Crypt_GPG object
         try {
-            $this->gpg = new Crypt_GPG(array(
-                'homedir'   => $this->homedir,
-                // 'binary'    => '/usr/bin/gpg2',
-                // 'debug'     => true,
-          ));
+            $this->gpg = new Crypt_GPG($options);
         }
         catch (Exception $e) {
             return $this->get_error_from_exception($e);
@@ -82,18 +95,24 @@ class enigma_driver_gnupg extends enigma_driver
     }
 
     /**
-     * Encryption.
+     * Encryption (and optional signing).
      *
-     * @param string Message body
-     * @param array  List of key-password mapping
+     * @param string     Message body
+     * @param array      List of keys (enigma_key objects)
+     * @param enigma_key Optional signing Key ID
      *
      * @return mixed Encrypted message or enigma_error on failure
      */
-    function encrypt($text, $keys)
+    function encrypt($text, $keys, $sign_key = null)
     {
         try {
             foreach ($keys as $key) {
-                $this->gpg->addEncryptKey($key);
+                $this->gpg->addEncryptKey($key->reference);
+            }
+
+            if ($sign_key) {
+                $this->gpg->addSignKey($sign_key->reference, $sign_key->password);
+                return $this->gpg->encryptAndSign($text, true);
             }
 
             return $this->gpg->encrypt($text, true);
@@ -104,21 +123,28 @@ class enigma_driver_gnupg extends enigma_driver
     }
 
     /**
-     * Decrypt a message
+     * Decrypt a message (and verify if signature found)
      *
-     * @param string Encrypted message
-     * @param array  List of key-password mapping
+     * @param string           Encrypted message
+     * @param array            List of key-password mapping
+     * @param enigma_signature Signature information (if available)
      *
      * @return mixed Decrypted message or enigma_error on failure
      */
-    function decrypt($text, $keys = array(), $out = '')
+    function decrypt($text, $keys = array(), &$signature = null)
     {
         try {
             foreach ($keys as $key => $password) {
                 $this->gpg->addDecryptKey($key, $password);
             }
 
-            return $this->gpg->decrypt($text);
+            $result = $this->gpg->decryptAndVerify($text);
+
+            if (!empty($result['signatures'])) {
+                $signature = $this->parse_signature($result['signatures'][0]);
+            }
+
+            return $result['data'];
         }
         catch (Exception $e) {
             return $this->get_error_from_exception($e);
@@ -128,17 +154,16 @@ class enigma_driver_gnupg extends enigma_driver
     /**
      * Signing.
      *
-     * @param string Message body
-     * @param string Key ID
-     * @param string Key password
-     * @param int    Signing mode (enigma_engine::SIGN_*)
+     * @param string     Message body
+     * @param enigma_key The key
+     * @param int        Signing mode (enigma_engine::SIGN_*)
      *
      * @return mixed True on success or enigma_error on failure
      */
-    function sign($text, $key, $passwd, $mode = null)
+    function sign($text, $key, $mode = null)
     {
         try {
-            $this->gpg->addSignKey($key, $passwd);
+            $this->gpg->addSignKey($key->reference, $key->password);
             return $this->gpg->sign($text, $mode, CRYPT_GPG::ARMOR_ASCII, true);
         }
         catch (Exception $e) {
@@ -190,13 +215,21 @@ class enigma_driver_gnupg extends enigma_driver
      * Key export.
      *
      * @param string Key ID
+     * @param bool   Include private key
      *
      * @return mixed Key content or enigma_error
      */
-    public function export($keyid)
+    public function export($keyid, $with_private = false)
     {
         try {
-            return $this->gpg->exportPublicKey($keyid, true);
+            $key = $this->gpg->exportPublicKey($keyid, true);
+
+            if ($with_private) {
+                $priv = $this->gpg->exportPrivateKey($keyid, true);
+                $key .= $priv;
+            }
+
+            return $key;
         }
         catch (Exception $e) {
             return $this->get_error_from_exception($e);
@@ -257,10 +290,11 @@ class enigma_driver_gnupg extends enigma_driver
     public function gen_key($data)
     {
         try {
+            $debug  = $this->rc->config->get('enigma_debug');
             $keygen = new Crypt_GPG_KeyGenerator(array(
                     'homedir' => $this->homedir,
                     // 'binary'  => '/usr/bin/gpg2',
-                    // 'debug'   => true,
+                    'debug'   => $debug ? array($this, 'debug') : false,
             ));
 
             $key = $keygen
@@ -433,6 +467,9 @@ class enigma_driver_gnupg extends enigma_driver
 
         $ekey->name = trim($ekey->users[0]->name . ' <' . $ekey->users[0]->email . '>');
 
+        // keep reference to Crypt_GPG's key for performance reasons
+        $ekey->reference = $key;
+
         foreach ($key->getSubKeys() as $idx => $subkey) {
             $skey = new enigma_subkey();
             $skey->id          = $subkey->getId();
@@ -451,5 +488,13 @@ class enigma_driver_gnupg extends enigma_driver
         $ekey->id = $ekey->subkeys[0]->id;
 
         return $ekey;
+    }
+
+    /**
+     * Write debug info from Crypt_GPG to logs/enigma
+     */
+    public function debug($line)
+    {
+        rcube::write_log('enigma', 'GPG: ' . $line);
     }
 }

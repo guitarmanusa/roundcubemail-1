@@ -1003,6 +1003,10 @@ class rcube
         if (is_object($this->storage)) {
             $this->storage->close();
         }
+
+        if ($this->config->get('log_driver') == 'syslog') {
+            closelog();
+        }
     }
 
     /**
@@ -1142,12 +1146,16 @@ class rcube
 
         // trigger logging hook
         if (is_object(self::$instance) && is_object(self::$instance->plugins)) {
-            $log  = self::$instance->plugins->exec_hook('write_log', array('name' => $name, 'date' => $date, 'line' => $line));
+            $log = self::$instance->plugins->exec_hook('write_log',
+                array('name' => $name, 'date' => $date, 'line' => $line));
+
             $name = $log['name'];
             $line = $log['line'];
             $date = $log['date'];
-            if ($log['abort'])
+
+            if ($log['abort']) {
                 return true;
+            }
         }
 
         // add session ID to the log
@@ -1169,32 +1177,25 @@ class rcube
         // per-user logging is activated
         if (self::$instance && self::$instance->config->get('per_user_logging', false) && self::$instance->get_user_id()) {
             $log_dir = self::$instance->get_user_log_dir();
-            if (empty($log_dir))
+            if (empty($log_dir) && $name != 'errors') {
                 return false;
+            }
         }
-        else if (!empty($log['dir'])) {
-            $log_dir = $log['dir'];
-        }
-        else if (self::$instance) {
-            $log_dir = self::$instance->config->get('log_dir');
+
+        if (empty($log_dir)) {
+            if (!empty($log['dir'])) {
+                $log_dir = $log['dir'];
+            }
+            else if (self::$instance) {
+                $log_dir = self::$instance->config->get('log_dir');
+            }
         }
 
         if (empty($log_dir)) {
             $log_dir = RCUBE_INSTALL_PATH . 'logs';
         }
 
-        // try to open specific log file for writing
-        $logfile = $log_dir.'/'.$name;
-
-        if ($fp = @fopen($logfile, 'a')) {
-            fwrite($fp, $line);
-            fflush($fp);
-            fclose($fp);
-            return true;
-        }
-
-        trigger_error("Error writing to log file $logfile; Please check permissions", E_USER_WARNING);
-        return false;
+        return file_put_contents("$log_dir/$name", $line, FILE_APPEND) !== false;
     }
 
     /**
@@ -1617,9 +1618,9 @@ class rcube
                     true, false);
             }
             else {
-                $delim   = $this->config->header_delimiter();
-                $to      = $headers['To'];
-                $subject = $headers['Subject'];
+                $delim      = $this->config->header_delimiter();
+                $to         = $headers['To'];
+                $subject    = $headers['Subject'];
                 $header_str = rtrim($header_str);
 
                 if ($delim != "\r\n") {
@@ -1629,10 +1630,8 @@ class rcube
                     $subject    = str_replace("\r\n", $delim, $subject);
                 }
 
-                if (filter_var(ini_get('safe_mode'), FILTER_VALIDATE_BOOLEAN))
-                    $sent = mail($to, $subject, $msg_body, $header_str);
-                else
-                    $sent = mail($to, $subject, $msg_body, $header_str, "-f$from");
+                $opts = filter_var(ini_get('safe_mode'), FILTER_VALIDATE_BOOLEAN) ? null : "-f$from";
+                $sent = mail($to, $subject, $msg_body, $header_str, $opts);
             }
         }
 

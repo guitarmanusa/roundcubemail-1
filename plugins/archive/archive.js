@@ -1,6 +1,6 @@
 /**
  * Archive plugin script
- * @version 2.3
+ * @version 2.4
  *
  * @licstart  The following is the entire license notice for the
  * JavaScript code in this file.
@@ -65,5 +65,5 @@ if (window.rcmail) {
       if (result.update)
         rcmail.command('list');  // refresh list
     });
-  })
+  });
 }

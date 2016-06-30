@@ -172,6 +172,10 @@ function rcube_mail_ui()
         if (get_pref('previewheaders') == '1') {
           toggle_preview_headers();
         }
+
+        if (rcmail.env.action == 'show') {
+            $('#messagecontent').focus()
+        }
       }
       else if (rcmail.env.action == 'compose') {
         rcmail.addEventListener('aftersend-attachment', show_uploadform)
@@ -305,7 +309,9 @@ function rcube_mail_ui()
     else if (rcmail.env.task == 'addressbook') {
       rcmail.addEventListener('afterupload-photo', show_uploadform)
         .addEventListener('beforepushgroup', push_contactgroup)
-        .addEventListener('beforepopgroup', pop_contactgroup);
+        .addEventListener('beforepopgroup', pop_contactgroup)
+        .addEventListener('menu-open', menu_toggle)
+        .addEventListener('menu-close', menu_toggle);
 
       if (rcmail.env.action == '') {
         new rcube_splitter({ id:'addressviewsplitterd', p1:'#addressview-left', p2:'#addressview-right',
