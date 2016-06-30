@@ -32,24 +32,24 @@ $config['enigma_decryption'] = true;
 // Enables messages encryption and signing feature.
 $config['enigma_encryption'] = true;
 
-// Enable signing all messages by default
-$config['enigma_sign_all'] = false;
+// Enable PGP signing of all messages by default
+$config['enigma_pgp_sign_all'] = false;
 
-// Enable encrypting all messages by default
-$config['enigma_encrypt_all'] = false;
+// Enable PGP encrypting of all messages by default
+$config['enigma_pgp_encrypt_all'] = false;
 
-// Enable attaching a public key to all messages by default
+// Enable attaching a PGP public key to all messages by default
 $config['enigma_attach_pubkey'] = false;
+
+// Enable signing all messages with an S/MIME certificate by default
+$config['enigma_smime_sign_all'] = false;
+
+// Enable encrypting all messages with an S/MIME certificate by default
+$config['enigma_smime_encrypt_all'] = false;
 
 // Default for how long to store private key passwords (in minutes).
 // When set to 0 passwords will be stored for the whole session.
 $config['enigma_password_time'] = 5;
-
-// Enable signing all messages with an S/MIME certificate by default
-$config['enigma_sign_all_smime'] = false;
-
-// Enable encrypting all messages with an S/MIME certificate by default
-$config['enigma_encrypt_all_smime'] = false;
 
 // Enables server-side keys generation which would be used
 // if user browser does not support web-crypto features.
@@ -68,11 +68,12 @@ $config['enigma_root_cas_location'] = "/etc/ssl/certs";
 
 // With this option you can lock composing options
 // of the plugin forcing the user to use configured settings.
-// The array accepts: 'sign', 'encrypt', 'pubkey'.
+// The array accepts: 'pgp_sign', 'pgp_encrypt', 'pubkey',
+// 'smime_sign', 'smime_encrypt'.
 //
 // For example, to force your users to sign every email,
 // you should set:
-//     - enigma_sign_all     = true
-//     - enigma_options_lock = array('sign')
-//     - dont_override       = array('enigma_sign_all')
+//     - enigma_pgp_sign_all     = true
+//     - enigma_options_lock = array('pgp_sign')
+//     - dont_override       = array('enigma_pgp_sign_all')
 $config['enigma_options_lock'] = array();
