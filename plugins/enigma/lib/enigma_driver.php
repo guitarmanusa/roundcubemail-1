@@ -49,10 +49,11 @@ abstract class enigma_driver
      * @param array            List of key-password
      * @param mixed      (GPG) enigma_signature Signature information (if available)
      *                 (SMIME) string filename containing decrypted text
+     * @param string   (SMIME) password to use for decryption
      *
      * @return mixed Decrypted message or enigma_error on failure
      */
-    abstract function decrypt($text, $keys = array(), &$signature = null);
+    abstract function decrypt($text, $keys = array(), &$signature = null, $password = '');
 
     /**
      * Signing.
