@@ -248,7 +248,7 @@ class enigma_driver_phpssl extends enigma_driver
         return $sig;
     }
 
-    public function import($cert_store, $isfile=false, $password='')
+    public function import($cert_store, $isfile=false, $passwords=array('',''))
     {
         //TODO should only be importing PKCS #12 store with user's Cert/PKey
         //  stored in plugins/enigma/home/<username>/user_certs/<username>
@@ -260,7 +260,7 @@ class enigma_driver_phpssl extends enigma_driver
             return new enigma_error(enigma_error::INTERNAL,
                 "Error: Unable to read the cert file.");
  
-        if (openssl_pkcs12_read($cert_store, $cert_info, $password)) {
+        if (openssl_pkcs12_read($cert_store, $cert_info, $passwords[0])) {
             $results = array('imported' => 0, 'unchanged' => 0);
 
             //check that the private key in the p12 is the correct private key for the cert
@@ -289,12 +289,9 @@ class enigma_driver_phpssl extends enigma_driver
                                 $results['unchanged'] += 1;
                             }
                         } else {
-                            //Prompt for passphrase
-                            $passphrase = "";
-                            //Export public key
-                            openssl_pkey_export($cert_info, $cert_info['pkey'], $passphrase);
                             //Export private key
-                            
+                            openssl_pkey_export($cert_info, $cert_info['pkey'], $passwords[1]);
+
                             //Write to file
                             file_put_contents($this->homedir."/user_certs/".$this->user, $cert_info['cert'].$cert_info['pkey']);
                             chmod($this->homedir."/user_certs/".$this->user, 0700);

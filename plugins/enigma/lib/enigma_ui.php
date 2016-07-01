@@ -1074,7 +1074,7 @@ class enigma_ui
         else if ($_FILES['_file']['tmp_name'] && is_uploaded_file($_FILES['_file']['tmp_name'])) {
 
             $this->enigma->load_engine();
-            $result = $this->enigma->engine->import_cert($_FILES['_file']['tmp_name'], true, $_POST['password']);
+            $result = $this->enigma->engine->import_cert($_FILES['_file']['tmp_name'], true, array($_POST['password'], $_POST['pkey_password']);
 
             if (is_array($result)) {
                 // reload list if any keys has been added
@@ -1122,14 +1122,36 @@ class enigma_ui
         $upload = new html_inputfield(array('type' => 'file', 'name' => '_file',
             'id' => 'rcmimportfile', 'size' => 30));
 
-        $password = new html_inputfield(array('type' => 'password', 'name' => 'password',
+        $pkcs12_password = new html_inputfield(array('type' => 'password', 'name' => 'password',
             'id' => 'password', 'size' => 50));
+
+        $pkey_password = new html_inputfield(array('type' => 'password', 'name' => 'pkey_password',
+            'id' => 'pkey_password', 'size' => 50, 'oninput' => 'checkPasswords()', 'onchange' => 'checkPasswords()'));
+
+        $pkey_password_verify = new html_inputfield(array('type' => 'password', 'name' => 'pkey_password_verify',
+            'id' => 'pkey_password_verify', 'size' => 50, 'oninput' => 'checkPasswords()', 'onchange' => 'checkPasswords()'));
 
         $form = html::p(null,
             rcube::Q($this->enigma->gettext('certimporttext'), 'show')
             . html::br() . html::br() . $upload->show()
-            . html::br() . html::br() . "Password: (optional)" 
-            . html::br() . $password->show()
+            . html::br() . html::br() . $this->enigma->gettext('pkcs12pwdprompt')
+            . html::br() . $pkcs12_password->show()
+            . html::br() . $this->enigma->gettext('smimepkey')
+            . html::br() . $pkey_password->show()
+            . html::label(array('id' => 'passwords_match'), '') // change to "Passwords match/don't match with javascript
+            . html::br() . $this->enigma->gettext('smimepkeyverify')
+            . html::br() . $pkey_password_verify->show()
+            . html::script(array(), "function checkPasswords() {
+    if($('#pkey_password').val() == $('#pkey_password_verify').val()) {
+        $('#passwords_match').css('color', 'green');
+        $('#passwords_match').text('" . $this->enigma->gettext('pwdmatch') . "');
+        return true;
+    } else {
+        $('#passwords_match').css('color', 'red');
+        $('#passwords_match').text('" . $this->enigma->gettext('pwdmismatch') . "');
+        return false;
+    }
+}")
         );
 
         $this->rc->output->add_label('selectimportfile', 'importwait');
@@ -1138,7 +1160,8 @@ class enigma_ui
         $out = $this->rc->output->form_tag(array(
             'action' => $this->rc->url(array('action' => $this->rc->action, 'a' => 'import')),
             'method' => 'post',
-            'enctype' => 'multipart/form-data') + $attrib,
+            'enctype' => 'multipart/form-data',
+            'onsubmit' => 'return checkPasswords()') + $attrib,
             $form);
 
         return $out;

@@ -1552,11 +1552,11 @@ class enigma_engine
      *
      * @param mixed   Import file name or content
      * @param boolean True if first argument is a filename
-     * @param string  Password for PEM or PKCS#12 file, optional
+     * @param array   Password for PKCS#12 file and desired password for new private key.
      *
      * @return mixed Import status data array or enigma_error
      */
-    function import_cert($content, $isfile=false, $password = '')
+    function import_cert($content, $isfile=false, $passwords = array('',''))
     {
         $this->load_smime_driver();
         $result = $this->smime_driver->import($content, $isfile, $password);

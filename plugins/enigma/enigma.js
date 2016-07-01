@@ -258,7 +258,7 @@ rcube_webmail.prototype.enigma_import = function()
 {
     var form, file;
 
-    if (form = this.gui_objects.importform) {
+    if ((form = this.gui_objects.importform) && checkPasswords()) {
         file = document.getElementById('rcmimportfile');
         if (file && !file.value) {
             alert(this.get_label('selectimportfile'));

@@ -98,6 +98,9 @@ $labels['keyexportprompt'] = 'Do you want to include secret keys in the saved Op
 $labels['onlypubkeys'] = 'Export Public Keys Only';
 $labels['withprivkeys'] = 'Export Secret Keys';
 
+$labels['pwdmatch'] = 'Passwords match.';
+$labels['pwdmismatch'] = 'Passwords do NOT match!';
+
 $messages = array();
 $messages['sigvalid'] = 'Verified signature from $sender.';
 $messages['sigvalidpartial'] = 'Verified signature from $sender, but part of the body was not signed.';
@@ -132,6 +135,9 @@ $messages['keyremovesuccess'] = 'Key(s) deleted successfully';
 $messages['keyremoveerror'] = 'Unable to delete selected key(s).';
 $messages['keyimporttext'] = 'You can import private and public key(s) or revocation signatures in ASCII-Armor format.';
 $messages['certimporttext'] = 'You can import S/MIME certificates in PKCS #12 format (.p12)';
+$messages['pkcs12pwdprompt'] = 'PKCS12 File Password:';
+$messages['smimepkey'] = 'Set Private key password: (leave blank for no password)';
+$messages['smimepkeyverify'] = 'Verify Private key password:';
 
 $messages['formerror'] = 'Please, fill the form. All fields are required!';
 $messages['passwordsdiffer'] = 'Passwords do not match!';
