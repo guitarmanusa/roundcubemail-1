@@ -102,23 +102,16 @@ class enigma_driver_phpssl extends enigma_driver
      *
      * @param string Full text of message (including headeres) to be encrypted
      * @param array  Keys to use for encryption
+     * @param array  associative array of headers
      *
      * @return mixed string encrypted message if successful, enigma_error if failed
     **/
-    function encrypt($text, $keys, $sign_key = null)
+    function encrypt($text, $keys, $headers = NULL)
     {
         $plaintext = tempnam($this->homedir, "plain");
         $ciphertext = tempnam($this->homedir, "enc");
         file_put_contents($plaintext, $text);
 
-        //headers
-        $_headers = explode("\r\n", explode("\r\n\r\n", $text)[0]);
-        foreach($_headers as $line) {
-            if($line[0] != " ") {
-                $line = explode(": ", $line);
-                $headers[$line[0]] = $line[1];
-            }
-        }
         unset($headers['Content-Type']);
         unset($headers['Content-Transfer-Encoding']);
 

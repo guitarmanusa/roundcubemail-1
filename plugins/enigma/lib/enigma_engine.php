@@ -224,7 +224,7 @@ class enigma_engine
         $body .= $mime->getOrigBody();
 
         // sign the body
-        $result = $this->smime_encrypt($body, $keys);
+        $result = $this->smime_encrypt($body, $keys, $message->headers());
 
         if ($result !== true) {
             return $result;
@@ -1298,13 +1298,14 @@ class enigma_engine
      *
      * @param mixed Message body
      * @param array Keys
+     * @param array associative array of headers
      *
      * @return mixed True or enigma_error
      */
-    private function smime_encrypt(&$msg_body, $keys)
+    private function smime_encrypt(&$msg_body, $keys, $headers)
     {
         // @TODO: Handle big bodies using (temp) files
-        $result = $this->smime_driver->encrypt($msg_body, $keys);
+        $result = $this->smime_driver->encrypt($msg_body, $keys, $headers);
 
         if ($result instanceof enigma_error) {
             $err_code = $result->getCode();
