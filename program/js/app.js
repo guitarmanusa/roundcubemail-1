@@ -8246,7 +8246,7 @@ function rcube_webmail()
     if (this.unload)
       return;
 
-    if (request.status && errmsg)
+    if (request.status && errmsg != "OK")
       this.display_message(this.get_label('servererror') + ' (' + errmsg + ')', 'error');
     else if (status == 'timeout')
       this.display_message(this.get_label('requesttimedout'), 'error');
