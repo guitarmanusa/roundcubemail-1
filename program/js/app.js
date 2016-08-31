@@ -3736,6 +3736,8 @@ function rcube_webmail()
   // wrapper for the mailvelope.createDisplayContainer API call
   this.mailvelope_display_container = function(selector, data, keyring, msgid)
   {
+    // If enigma plugin is enabled this text is prepended to the message
+    data = data.replace("Decryption failed. Key password required.", "");
     mailvelope.createDisplayContainer(selector, data, keyring, { showExternalContent: this.env.safemode }).then(function() {
       $(selector).addClass('mailvelope').children().not('iframe').hide();
       ref.hide_message(msgid);
