@@ -54,6 +54,37 @@ window.rcmail && rcmail.addEventListener('init', function(evt) {
         if (rcmail.env.enigma_password_request) {
             rcmail.enigma_password_request(rcmail.env.enigma_password_request);
         }
+
+        /*********************************************************/
+        /*********      Hybrid Decryption routine        *********/
+        /*********************************************************/
+        // check for mailvelope
+        // $(document).ready(function(){
+            if ((rcmail.env.action == 'show' || rcmail.env.action == 'preview') && typeof mailvelope !== 'undefined') {
+                if (rcmail.env.is_pgp_content) {
+                    // grab PGP encrypted message from window
+                    var message = $(rcmail.env.is_pgp_content).find(".pre").html();
+                    message = message.replace("Decryption failed. Key password required.\n", "");
+                    message = message.replace(/<span[^>]*>|<br>|<\/span>/g, "");
+                    message = message.replace(/&nbsp;/g, " ");
+
+                    // decrypt Session key utilizing Mailvelope API
+                    mailvelope.getKeyring('mailvelope').then(function(kr) {
+                        return kr.decryptSessionKey(message)
+                    }).then(function(dsk) {
+                        if (dsk == 'undefined' && rcmail.env.enigma_password_request) {
+                            rcmail.enigma_password_request(rcmail.env.enigma_password_request);
+                        }
+
+                        // post the decrypted session key back to server
+                        var form = $('<form action="'+location.href+'" method="post"></form>').appendTo('body');
+                        $(form).append('<input type="hidden" name="sessionKey" value="'+dsk+'">');
+                        $(form).append('<input type="hidden" name="_token" value="'+rcmail.env.request_token+'">');
+                        $(form).submit();
+                    });
+                }
+            }
+        // }
     }
 });
 

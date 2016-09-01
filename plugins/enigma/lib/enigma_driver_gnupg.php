@@ -95,6 +95,14 @@ class enigma_driver_gnupg extends enigma_driver
     }
 
     /**
+     * Add session key for hybrid decryption
+     */
+    function addSessionKey($sessionKey)
+    {
+        $this->gpg->addSessionKey($sessionKey);
+    }
+
+    /**
      * Encryption (and optional signing).
      *
      * @param string     Message body
@@ -134,8 +142,11 @@ class enigma_driver_gnupg extends enigma_driver
     function decrypt($text, $keys = array(), &$signature = null)
     {
         try {
-            foreach ($keys as $key => $password) {
-                $this->gpg->addDecryptKey($key, $password);
+            if ($keys != null)
+            {
+                foreach ($keys as $key => $password) {
+                    $this->gpg->addDecryptKey($key, $password);
+                }
             }
 
             $result = $this->gpg->decryptAndVerify($text);
