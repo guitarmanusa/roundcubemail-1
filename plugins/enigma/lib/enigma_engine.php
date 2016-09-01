@@ -372,6 +372,18 @@ class enigma_engine
     }
 
     /**
+     * Handler for adding a session key for hybrid decryption
+     *
+     * @param string - session key to be added
+     *
+     * @return bool True on success, False on failure
+     */
+     function addSessionKey($sessionKey)
+     {
+        $this->pgp_driver->addSessionKey($sessionKey);
+     }
+
+    /**
      * Handler for message_part_structure hook.
      * Called for every part of the message.
      *
@@ -887,8 +899,14 @@ class enigma_engine
     private function pgp_decrypt(&$msg_body, &$signature = null)
     {
         // @TODO: Handle big bodies using (temp) files
-        $keys   = $this->get_passwords();
-        $result = $this->pgp_driver->decrypt($msg_body, $keys, $signature);
+        if (!isset($_POST['sessionKey'])) {
+            $keys   = $this->get_passwords();
+            $result = $this->pgp_driver->decrypt($msg_body, $keys, $signature);
+        } else {
+            // add session key to CryptGPG and decrypt
+            $this->addSessionKey($_POST['sessionKey']);
+            $result = $this->pgp_driver->decrypt($msg_body, null, $signature);
+        }
 
         if ($result instanceof enigma_error) {
             $err_code = $result->getCode();
